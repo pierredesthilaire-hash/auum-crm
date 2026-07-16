@@ -228,15 +228,123 @@ create table public.meetings (
 );
 
 -- =====================================================================
--- RLS (Row Level Security) — Mission 1 : version simple
+-- RLS (Row Level Security) — Mission 1
 --   direction : accès total | AE : ses lignes (ae_id / owner_id = lui)
---   Les policies détaillées sont à écrire avec Claude Code, table par table.
 -- =====================================================================
+
+-- Fonction utilitaire : l'utilisateur courant est-il de la direction ?
+-- security definer pour éviter la récursion sur la policy de profiles.
+create or replace function public.is_direction()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'direction'
+  );
+$$;
+
+-- ---------- profiles ----------
+alter table public.profiles enable row level security;
+
+create policy "profiles select" on public.profiles for select
+  using ( id = auth.uid() or public.is_direction() );
+
+create policy "profiles update direction" on public.profiles for update
+  using ( public.is_direction() );
+
+-- ---------- entities ----------
+alter table public.entities enable row level security;
+
+create policy "entities select" on public.entities for select
+  using ( owner_id = auth.uid() or public.is_direction() );
+
+create policy "entities insert" on public.entities for insert
+  with check ( owner_id = auth.uid() or public.is_direction() );
+
+create policy "entities update" on public.entities for update
+  using ( owner_id = auth.uid() or public.is_direction() );
+
+-- ---------- contacts (héritent du périmètre de leur entité) ----------
+alter table public.contacts enable row level security;
+
+create policy "contacts select" on public.contacts for select
+  using ( exists (
+    select 1 from public.entities e
+    where e.id = contacts.entity_id
+      and (e.owner_id = auth.uid() or public.is_direction())
+  ) );
+
+create policy "contacts insert" on public.contacts for insert
+  with check ( exists (
+    select 1 from public.entities e
+    where e.id = contacts.entity_id
+      and (e.owner_id = auth.uid() or public.is_direction())
+  ) );
+
+create policy "contacts update" on public.contacts for update
+  using ( exists (
+    select 1 from public.entities e
+    where e.id = contacts.entity_id
+      and (e.owner_id = auth.uid() or public.is_direction())
+  ) );
+
+-- ---------- opportunities ----------
 alter table public.opportunities enable row level security;
-alter table public.prospects     enable row level security;
-alter table public.tasks         enable row level security;
-alter table public.entities      enable row level security;
--- Exemple de policy (à décliner) :
--- create policy "ae voit ses oppos" on public.opportunities for select
---   using ( ae_id = auth.uid()
---           or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'direction') );
+
+create policy "opportunities select" on public.opportunities for select
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "opportunities insert" on public.opportunities for insert
+  with check ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "opportunities update" on public.opportunities for update
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "opportunities delete direction" on public.opportunities for delete
+  using ( public.is_direction() );
+
+-- ---------- prospects ----------
+alter table public.prospects enable row level security;
+
+create policy "prospects select" on public.prospects for select
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "prospects insert" on public.prospects for insert
+  with check ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "prospects update" on public.prospects for update
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+-- ---------- tasks ----------
+alter table public.tasks enable row level security;
+
+create policy "tasks select" on public.tasks for select
+  using ( owner_id = auth.uid() or public.is_direction() );
+
+create policy "tasks insert" on public.tasks for insert
+  with check ( owner_id = auth.uid() or public.is_direction() );
+
+create policy "tasks update" on public.tasks for update
+  using ( owner_id = auth.uid() or public.is_direction() );
+
+create policy "tasks delete direction" on public.tasks for delete
+  using ( public.is_direction() );
+
+-- ---------- meetings (lecture seule côté client ; écrit par la synchro Graph, mission 2) ----------
+alter table public.meetings enable row level security;
+
+create policy "meetings select" on public.meetings for select
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+-- ---------- audit_log (journal immuable : pas d'update/delete) ----------
+alter table public.audit_log enable row level security;
+
+create policy "audit_log select" on public.audit_log for select
+  using ( user_id = auth.uid() or public.is_direction() );
+
+create policy "audit_log insert" on public.audit_log for insert
+  with check ( user_id = auth.uid() );
