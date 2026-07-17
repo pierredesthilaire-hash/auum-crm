@@ -31,8 +31,8 @@ Entra ID `auum-crm`), qu'il faut maintenant finaliser :
       déjà fait
 - [ ] Côté WordPress : identifier comment déclencher un webhook sortant
       à la soumission d'un formulaire (plugin **WPForms**, **Contact
-      Form 7 + hook**, ou **Webhooks CF7**) — pas besoin de le configurer
-      tout de suite, juste de savoir quel plugin est en place
+      Form 7 + hook**, ou **Webhooks CF7**) — **pas urgent**, ce point est
+      traité en dernier dans cette mission (voir plus bas)
 
 ## Le prompt à coller dans Claude Code (session 1)
 
@@ -51,18 +51,24 @@ Entra ID `auum-crm`), qu'il faut maintenant finaliser :
 >    `meetings` (dédoublonnage par `graph_id`, unique). Rattachement
 >    automatique à `opp_id`/`entity_id` par email des participants
 >    (contacts.email, puis domaine → entities).
-> 3. **Webhook WordPress** : crée une route API (`/api/webhooks/wordpress`)
->    qui reçoit les soumissions de formulaire (POST JSON), authentifiée
->    par un secret partagé en en-tête, et crée un enregistrement dans
+> 3. **Déploiement Outlook** : variables d'environnement supplémentaires
+>    sur Vercel si besoin, push + vérification en prod. On s'arrête là
+>    pour valider les jalons J1 à J3 avant de passer au webhook.
+> 4. **Webhook WordPress** (dernier, traité seulement une fois le reste
+>    validé) : crée une route API (`/api/webhooks/wordpress`) qui reçoit
+>    les soumissions de formulaire (POST JSON), authentifiée par un
+>    secret partagé en en-tête, et crée un enregistrement dans
 >    `prospects` (source = « Site web »). Rejette toute requête sans le
 >    bon secret.
-> 4. **Déploiement** : variables d'environnement supplémentaires sur
->    Vercel (`WORDPRESS_WEBHOOK_SECRET`), push + vérification en prod.
 >
 > Contraintes : pas de cron/tâche planifiée dans cette mission (la sync
 > reste déclenchée manuellement par l'AE) — on l'automatisera plus tard
 > si le besoin se confirme. Le token Microsoft ne doit jamais transiter
 > côté client. Rien de `demo:true`. Commits atomiques.
+>
+> **Priorité : traite le webhook WordPress en dernier**, après avoir
+> validé toute la partie Outlook (jalons J1 à J3) — ce n'est pas urgent
+> pour Pierre.
 
 ---
 
@@ -73,10 +79,11 @@ Entra ID `auum-crm`), qu'il faut maintenant finaliser :
       jour apparaissent dans mon Dashboard
 - [ ] **J3** — Un RDV avec un contact connu du CRM (même domaine email
       qu'un compte) est bien rattaché au compte/à l'oppo correspondante
-- [ ] **J4** — Je soumets le formulaire de contact sur auum.fr (ou un
-      test simulé), un nouveau prospect apparaît dans la base (table
-      `prospects` — l'écran « Mes prospects » viendra en mission 3)
-- [ ] **J5** — Resynchroniser deux fois de suite ne crée pas de doublons
+- [ ] **J4** — Resynchroniser deux fois de suite ne crée pas de doublons
+- [ ] **J5** *(dernier, webhook WordPress — pas urgent)* — Je soumets le
+      formulaire de contact sur auum.fr (ou un test simulé), un nouveau
+      prospect apparaît dans la base (table `prospects` — l'écran
+      « Mes prospects » viendra en mission 3)
 
 ## Critère de décision (fin de mission 2)
 
