@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { keur, fdate } from "@/lib/format";
 import { stageOf } from "@/lib/stages";
+import { todayISO } from "@/lib/dates";
 
 async function currentUserId(): Promise<string> {
   const supabase = await createClient();
@@ -149,7 +150,7 @@ export async function markWon(
 
   const { error: updateErr } = await supabase
     .from("opportunities")
-    .update({ state: "won", closed_on: new Date().toISOString().slice(0, 10) })
+    .update({ state: "won", closed_on: todayISO() })
     .eq("id", oppId);
   if (updateErr) return { ok: false, error: updateErr.message };
 
@@ -200,7 +201,7 @@ export async function markLost(oppId: string, comment: string): Promise<{ ok: bo
 
   const { error: updateErr } = await supabase
     .from("opportunities")
-    .update({ state: "lost", closed_on: new Date().toISOString().slice(0, 10) })
+    .update({ state: "lost", closed_on: todayISO() })
     .eq("id", oppId);
   if (updateErr) return { ok: false, error: updateErr.message };
 
