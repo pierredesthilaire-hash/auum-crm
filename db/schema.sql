@@ -292,6 +292,13 @@ create policy "contacts update" on public.contacts for update
       and (e.owner_id = auth.uid() or public.is_direction())
   ) );
 
+create policy "contacts delete" on public.contacts for delete
+  using ( exists (
+    select 1 from public.entities e
+    where e.id = contacts.entity_id
+      and (e.owner_id = auth.uid() or public.is_direction())
+  ) );
+
 -- ---------- opportunities ----------
 alter table public.opportunities enable row level security;
 
@@ -348,3 +355,27 @@ create policy "audit_log select" on public.audit_log for select
 
 create policy "audit_log insert" on public.audit_log for insert
   with check ( user_id = auth.uid() );
+
+-- ---------- groups (référentiel partagé société mère / filiales) ----------
+alter table public.groups enable row level security;
+
+create policy "groups select" on public.groups for select
+  to authenticated using ( true );
+
+create policy "groups insert" on public.groups for insert
+  to authenticated with check ( true );
+
+create policy "groups update direction" on public.groups for update
+  using ( public.is_direction() );
+
+-- ---------- settings (segmentation, benchmarks lifecycle — édition direction) ----------
+alter table public.settings enable row level security;
+
+create policy "settings select" on public.settings for select
+  to authenticated using ( true );
+
+create policy "settings upsert direction" on public.settings for insert
+  with check ( public.is_direction() );
+
+create policy "settings update direction" on public.settings for update
+  using ( public.is_direction() );
