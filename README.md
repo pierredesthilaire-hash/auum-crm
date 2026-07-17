@@ -49,7 +49,9 @@ réponse en ouvrant ce fichier dans un navigateur (comptes de démo : `psaint` /
 
 ## Feuille de route
 
-- **Mission 1** (ce kit) : base + auth + import + écrans Pipe/Comptes/Dashboard
-- **Mission 2** : synchro Outlook (Microsoft Graph) + webhook WordPress
+- **Mission 1** ✅ déployée (`https://auum-crm.vercel.app`) : base + auth +
+  import + écrans Pipe/Comptes/Dashboard/Cockpit — voir `MISSION-1.md`
+- **Mission 2** (en cours) : synchro Outlook (Microsoft Graph) + webhook
+  WordPress — voir `MISSION-2.md`
 - **Mission 3** : connecteurs Basile/Emelia/Lemlist + workflow validation BDD
 - **Mission 4** : couche IA (signaux, veille, assistant email) + Claap
