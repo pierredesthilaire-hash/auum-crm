@@ -5,6 +5,10 @@ export function keur(n: number): string {
   return Math.round(n / 1000).toLocaleString("fr-FR") + " k€";
 }
 
+export function num(n: number): string {
+  return Number(n || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+}
+
 export function fdate(d: string | null | undefined): string {
   if (!d) return "—";
   return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", {
