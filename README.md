@@ -51,7 +51,8 @@ réponse en ouvrant ce fichier dans un navigateur (comptes de démo : `psaint` /
 
 - **Mission 1** ✅ déployée (`https://auum-crm.vercel.app`) : base + auth +
   import + écrans Pipe/Comptes/Dashboard/Cockpit — voir `MISSION-1.md`
-- **Mission 2** (en cours) : synchro Outlook (Microsoft Graph) + webhook
-  WordPress — voir `MISSION-2.md`
-- **Mission 3** : connecteurs Basile/Emelia/Lemlist + workflow validation BDD
+- **Mission 2** (en pause, bloquée sur le consentement admin Azure) :
+  synchro Outlook (Microsoft Graph) + webhook WordPress — voir `MISSION-2.md`
+- **Mission 3** (en cours) : connecteurs Basile/Emelia + workflow
+  validation BDD + écran « Mes prospects » — voir `MISSION-3.md`
 - **Mission 4** : couche IA (signaux, veille, assistant email) + Claap
