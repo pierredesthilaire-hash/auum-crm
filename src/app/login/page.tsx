@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { signIn } from "./actions";
+import { signIn, signInWithAzure } from "./actions";
 
 export default function LoginPage() {
   const [error, formAction, pending] = useActionState(signIn, null);
@@ -60,7 +60,35 @@ export default function LoginPage() {
             {pending ? "Connexion…" : "Se connecter"}
           </button>
         </form>
+
+        <div className="my-4 flex items-center gap-3">
+          <div className="h-px flex-1" style={{ background: "var(--line)" }} />
+          <span className="text-[10.5px] uppercase text-[var(--muted)]">ou</span>
+          <div className="h-px flex-1" style={{ background: "var(--line)" }} />
+        </div>
+
+        <form action={signInWithAzure}>
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-semibold transition-colors hover:border-[var(--teal)]"
+            style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+          >
+            <MicrosoftLogo />
+            Se connecter avec Microsoft
+          </button>
+        </form>
       </div>
     </div>
+  );
+}
+
+function MicrosoftLogo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <rect x="1" y="1" width="6.5" height="6.5" fill="#F25022" />
+      <rect x="8.5" y="1" width="6.5" height="6.5" fill="#7FBA00" />
+      <rect x="1" y="8.5" width="6.5" height="6.5" fill="#00A4EF" />
+      <rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#FFB900" />
+    </svg>
   );
 }

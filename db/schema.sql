@@ -227,6 +227,15 @@ create table public.meetings (
   entity_id  uuid references public.entities(id) on delete set null
 );
 
+-- ---------- Tokens Microsoft (refresh token Graph, mission 2) ----------
+-- Jamais lu par la direction : strictement scoping "soi-même", même en
+-- RLS, pour limiter la surface d'exposition d'un refresh token.
+create table public.ms_tokens (
+  user_id      uuid primary key references public.profiles(id) on delete cascade,
+  refresh_token text not null,
+  updated_at   timestamptz default now()
+);
+
 -- =====================================================================
 -- RLS (Row Level Security) — Mission 1
 --   direction : accès total | AE : ses lignes (ae_id / owner_id = lui)
@@ -341,11 +350,29 @@ create policy "tasks update" on public.tasks for update
 create policy "tasks delete direction" on public.tasks for delete
   using ( public.is_direction() );
 
--- ---------- meetings (lecture seule côté client ; écrit par la synchro Graph, mission 2) ----------
+-- ---------- meetings (écrites par l'AE lui-même via la synchro Graph, mission 2) ----------
 alter table public.meetings enable row level security;
 
 create policy "meetings select" on public.meetings for select
   using ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "meetings insert" on public.meetings for insert
+  with check ( ae_id = auth.uid() or public.is_direction() );
+
+create policy "meetings update" on public.meetings for update
+  using ( ae_id = auth.uid() or public.is_direction() );
+
+-- ---------- ms_tokens (refresh token Graph — jamais accessible à la direction) ----------
+alter table public.ms_tokens enable row level security;
+
+create policy "ms_tokens select own" on public.ms_tokens for select
+  using ( user_id = auth.uid() );
+
+create policy "ms_tokens insert own" on public.ms_tokens for insert
+  with check ( user_id = auth.uid() );
+
+create policy "ms_tokens update own" on public.ms_tokens for update
+  using ( user_id = auth.uid() );
 
 -- ---------- audit_log (journal immuable : pas d'update/delete) ----------
 alter table public.audit_log enable row level security;
