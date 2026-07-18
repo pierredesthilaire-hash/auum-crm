@@ -335,6 +335,23 @@ create policy "prospects insert" on public.prospects for insert
 create policy "prospects update" on public.prospects for update
   using ( ae_id = auth.uid() or public.is_direction() );
 
+-- ---------- touches (héritent du périmètre de leur prospect) ----------
+alter table public.touches enable row level security;
+
+create policy "touches select" on public.touches for select
+  using ( exists (
+    select 1 from public.prospects p
+    where p.id = touches.prospect_id
+      and (p.ae_id = auth.uid() or public.is_direction())
+  ) );
+
+create policy "touches insert" on public.touches for insert
+  with check ( exists (
+    select 1 from public.prospects p
+    where p.id = touches.prospect_id
+      and (p.ae_id = auth.uid() or public.is_direction())
+  ) );
+
 -- ---------- tasks ----------
 alter table public.tasks enable row level security;
 

@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "◈", enabled: true },
   { href: "/pipe", label: "Pipe", icon: "☰", enabled: true },
   { href: "/clients", label: "Mes clients", icon: "⌂", enabled: true },
+  { href: "/prospects", label: "Mes prospects", icon: "◇", enabled: true },
   { href: "/cockpit", label: "Cockpit direction", icon: "◎", enabled: true, directionOnly: true },
 ];
 
