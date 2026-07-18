@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { addDaysISO, todayISO } from "@/lib/dates";
 
 function parseCSV(text: string): Record<string, string>[] {
   const firstLine = text.split("\n")[0] ?? "";
@@ -110,6 +111,39 @@ export async function logTouch(
     await supabase.from("prospects").update({ status: "contacte" }).eq("id", prospectId);
   }
 
+  revalidatePath("/prospects");
+  return { ok: true };
+}
+
+export async function setNextActionDate(
+  prospectId: string,
+  date: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospects").update({ next_action_date: date }).eq("id", prospectId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/prospects");
+  return { ok: true };
+}
+
+export async function snoozeNextAction(
+  prospectId: string,
+  days: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: p, error: fetchErr } = await supabase
+    .from("prospects")
+    .select("next_action_date")
+    .eq("id", prospectId)
+    .single();
+  if (fetchErr || !p) return { ok: false, error: "Prospect introuvable" };
+
+  const today = todayISO();
+  const base = p.next_action_date && p.next_action_date > today ? p.next_action_date : today;
+  const newDate = addDaysISO(base, days);
+
+  const { error } = await supabase.from("prospects").update({ next_action_date: newDate }).eq("id", prospectId);
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/prospects");
   return { ok: true };
 }

@@ -20,7 +20,7 @@ export default async function ProspectsPage() {
     supabase
       .from("prospects")
       .select(
-        "id, company, contact, role, email, phone, linkedin, city, sector, headcount, ae_id, status, source, opp_id, created_at, profiles(full_name), touches(id)",
+        "id, company, contact, role, email, phone, linkedin, city, sector, headcount, ae_id, status, source, opp_id, created_at, next_action_date, profiles(full_name), touches(id)",
       )
       .order("created_at", { ascending: false })
       .range(0, 9999)

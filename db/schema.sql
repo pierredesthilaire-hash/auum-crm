@@ -110,6 +110,7 @@ create table public.prospects (
   status      text not null default 'a_contacter'
               check (status in ('a_contacter','contacte','r1_planifie','r1_realise','converti','sans_suite')),
   notes       text,                            -- historique libre (appels, refus, commentaires AE)
+  next_action_date date,                       -- prochaine relance prévue par l'AE
   seq         text,                            -- nom de campagne outbound
   source      text,
   opp_id      uuid references public.opportunities(id) on delete set null,

@@ -17,6 +17,7 @@ export type ProspectRow = {
   source: string | null;
   opp_id: string | null;
   created_at: string;
+  next_action_date: string | null;
   profiles: { full_name: string } | null;
   touches: { id: string }[];
 };
