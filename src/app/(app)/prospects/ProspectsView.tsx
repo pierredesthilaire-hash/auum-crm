@@ -40,12 +40,20 @@ export function ProspectsView({
   const today = todayStr();
   const [aeFilter, setAeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sectorFilter, setSectorFilter] = useState("ALL");
+  const [personaSearch, setPersonaSearch] = useState("");
   const [todayOnly, setTodayOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const sectors = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) if (p.sector) set.add(p.sector);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [prospects]);
 
   const stats = useMemo(() => {
     const byStatus = new Map<string, number>();
@@ -62,10 +70,13 @@ export function ProspectsView({
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const persona = personaSearch.trim().toLowerCase();
     const list = prospects.filter((p) => {
       if (aeFilter === "NONE" && p.ae_id) return false;
       if (aeFilter !== "ALL" && aeFilter !== "NONE" && p.profiles?.full_name !== aeFilter) return false;
       if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
+      if (sectorFilter !== "ALL" && p.sector !== sectorFilter) return false;
+      if (persona && !(p.role ?? "").toLowerCase().includes(persona)) return false;
       if (todayOnly && urgencyGroup(p, today) > 1) return false;
       if (q && !`${p.company} ${p.contact ?? ""} ${p.email ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
@@ -78,12 +89,12 @@ export function ProspectsView({
       return a.company.localeCompare(b.company);
     });
     return list;
-  }, [prospects, aeFilter, statusFilter, todayOnly, search, today]);
+  }, [prospects, aeFilter, statusFilter, sectorFilter, personaSearch, todayOnly, search, today]);
 
   // repart à la page 1 à chaque changement de filtre
   useEffect(() => {
     setPage(0);
-  }, [aeFilter, statusFilter, todayOnly, search]);
+  }, [aeFilter, statusFilter, sectorFilter, personaSearch, todayOnly, search]);
 
   const pageCount = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
   const pageItems = filteredSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -147,13 +158,34 @@ export function ProspectsView({
             {sid === "ALL" ? "Tous" : pstatOf(sid).label}
           </Chip>
         ))}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs font-semibold">
+          Secteur :
+          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} className="input" style={{ width: 220 }}>
+            <option value="ALL">Tous ({sectors.length})</option>
+            {sectors.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <input
+          value={personaSearch}
+          onChange={(e) => setPersonaSearch(e.target.value)}
+          placeholder="Fonction / persona (ex. QHSE, RSE, Directeur…)"
+          className="input"
+          style={{ width: 240 }}
+        />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher…"
+          placeholder="Rechercher (société, contact, email)…"
           className="input ml-auto"
-          style={{ width: 220 }}
+          style={{ width: 240 }}
         />
       </div>
 
