@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { STAGES, stageOf } from "@/lib/stages";
 import { keur, fdate, initials, aeColor } from "@/lib/format";
+import { MEDDIC_FIELDS, isMeddicComplete, meddicRequired, type MeddicKey } from "@/lib/meddic";
 import { changeStage } from "./actions";
 import { ConfirmDialog, type ConfirmRequest } from "./ConfirmDialog";
 import { OppDrawer } from "./OppDrawer";
@@ -70,6 +71,20 @@ export function PipeBoard({
     const stages = STAGES.map((s) => s.id);
     const dir = stages.indexOf(to.id) > stages.indexOf(from.id) ? "up" : "down";
 
+    if (dir === "up" && !oppMeddicOk(opp)) {
+      await confirm({
+        title: "MEDDIC incomplet",
+        alertOnly: true,
+        message: (
+          <>
+            <b>{opp.entities?.name}</b> — {opp.name} compte {opp.machines} machines (plus de 5) :
+            complétez les 6 champs MEDDIC dans la fiche avant de faire avancer l&apos;étape.
+          </>
+        ),
+      });
+      return;
+    }
+
     const r = await confirm({
       title: "Changement d'étape",
       withComment: true,
@@ -90,8 +105,21 @@ export function PipeBoard({
         </>
       ),
     });
-    if (r.ok) await changeStage(opp.id, stageId, r.comment);
+    if (r.ok) {
+      const res = await changeStage(opp.id, stageId, r.comment);
+      if (!res.ok && res.error) {
+        await confirm({ title: "Étape non modifiée", alertOnly: true, message: res.error });
+      }
+    }
   };
+
+  function oppMeddicOk(o: OppRow): boolean {
+    if (!meddicRequired(o.machines)) return true;
+    const fields = Object.fromEntries(
+      MEDDIC_FIELDS.map((f) => [f.key, o[`meddic_${f.key}`]]),
+    ) as Record<MeddicKey, string | null>;
+    return isMeddicComplete(fields);
+  }
 
   return (
     <div>
@@ -187,6 +215,7 @@ export function PipeBoard({
                         <Tag>{o.machines} mach.</Tag>
                         <Tag money>{keur(o.amount)}</Tag>
                         <Tag>{o.prob} %</Tag>
+                        {!oppMeddicOk(o) && <Tag late>⚠ MEDDIC</Tag>}
                         {late ? (
                           <Tag late>⏰ {fdate(o.close_date)}</Tag>
                         ) : o.close_date ? (

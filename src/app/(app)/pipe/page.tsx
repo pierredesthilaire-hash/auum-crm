@@ -20,7 +20,7 @@ export default async function PipePage() {
     supabase
       .from("opportunities")
       .select(
-        "id, name, stage, machines, amount, prob, close_date, install_date, notes, dyn_id, stage_orig, created_at, entity_id, ae_id, entities(name), profiles(full_name)",
+        "id, name, stage, machines, amount, prob, close_date, install_date, notes, meddic_metrics, meddic_economic_buyer, meddic_decision_criteria, meddic_decision_process, meddic_pain, meddic_champion, dyn_id, stage_orig, created_at, entity_id, ae_id, entities(name), profiles(full_name)",
       )
       .eq("state", "open")
       .order("amount", { ascending: false })

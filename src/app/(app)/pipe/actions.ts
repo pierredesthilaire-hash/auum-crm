@@ -3,8 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { keur, fdate } from "@/lib/format";
-import { stageOf } from "@/lib/stages";
+import { stageOf, STAGES } from "@/lib/stages";
 import { todayISO } from "@/lib/dates";
+import { MEDDIC_FIELDS, isMeddicComplete, meddicRequired, type MeddicKey } from "@/lib/meddic";
+
+const MEDDIC_COLUMNS = MEDDIC_FIELDS.map((f) => `meddic_${f.key}`);
+
+function meddicFromRow(row: Record<string, unknown>): Record<MeddicKey, string | null> {
+  return Object.fromEntries(
+    MEDDIC_FIELDS.map((f) => [f.key, (row[`meddic_${f.key}`] as string | null) ?? null]),
+  ) as Record<MeddicKey, string | null>;
+}
+
+const MEDDIC_BLOCK_MESSAGE =
+  "MEDDIC incomplet : cette opportunité de plus de 5 machines doit être qualifiée (6 champs MEDDIC remplis) avant de progresser dans le pipe ou d'être signée.";
 
 async function currentUserId(): Promise<string> {
   const supabase = await createClient();
@@ -25,17 +37,21 @@ export async function changeStage(
 
   const { data: opp, error: fetchErr } = await supabase
     .from("opportunities")
-    .select("stage")
+    .select(["stage", "machines", ...MEDDIC_COLUMNS].join(", "))
     .eq("id", oppId)
-    .single();
+    .single<Record<string, unknown>>();
   if (fetchErr || !opp) return { ok: false, error: "Opportunité introuvable" };
 
-  const from = stageOf(opp.stage);
+  const from = stageOf(opp.stage as string);
   const to = stageOf(toStage);
   if (!from || !to || from.id === to.id) return { ok: false };
 
-  const stages = ["qualification", "decouverte", "demo", "nego", "signature"];
+  const stages = STAGES.map((s) => s.id);
   const dir = stages.indexOf(to.id) > stages.indexOf(from.id) ? "up" : "down";
+
+  if (dir === "up" && meddicRequired(opp.machines as number) && !isMeddicComplete(meddicFromRow(opp))) {
+    return { ok: false, error: MEDDIC_BLOCK_MESSAGE };
+  }
 
   const { error: updateErr } = await supabase
     .from("opportunities")
@@ -62,7 +78,17 @@ type OpportunityEdits = {
   closeDate: string | null;
   installDate: string | null;
   notes: string;
+  meddic: Record<MeddicKey, string>;
 };
+
+type OppSaveRow = {
+  prob: number;
+  machines: number;
+  amount: number;
+  close_date: string | null;
+  install_date: string | null;
+  notes: string | null;
+} & Record<`meddic_${MeddicKey}`, string | null>;
 
 export async function saveOpportunity(
   oppId: string,
@@ -73,9 +99,9 @@ export async function saveOpportunity(
 
   const { data: opp, error: fetchErr } = await supabase
     .from("opportunities")
-    .select("prob, machines, amount, close_date, install_date, notes")
+    .select(["prob, machines, amount, close_date, install_date, notes", ...MEDDIC_COLUMNS].join(", "))
     .eq("id", oppId)
-    .single();
+    .single<OppSaveRow>();
   if (fetchErr || !opp) return { ok: false, error: "Opportunité introuvable" };
 
   const logs: { type: string; detail: string; delta_machines?: number; delta_amount?: number }[] = [];
@@ -108,6 +134,16 @@ export async function saveOpportunity(
   if (edits.notes !== (opp.notes ?? "")) {
     logs.push({ type: "field_change", detail: "Notes mises à jour" });
   }
+  const meddicChanged = MEDDIC_FIELDS.some(
+    (f) => (edits.meddic[f.key] ?? "").trim() !== (opp[`meddic_${f.key}`] ?? ""),
+  );
+  if (meddicChanged) {
+    logs.push({ type: "field_change", detail: "Qualification MEDDIC mise à jour" });
+  }
+
+  const meddicUpdate = Object.fromEntries(
+    MEDDIC_FIELDS.map((f) => [`meddic_${f.key}`, edits.meddic[f.key]?.trim() || null]),
+  );
 
   const { error: updateErr } = await supabase
     .from("opportunities")
@@ -118,6 +154,7 @@ export async function saveOpportunity(
       close_date: edits.closeDate,
       install_date: edits.installDate,
       notes: edits.notes,
+      ...meddicUpdate,
       updated_at: new Date().toISOString(),
     })
     .eq("id", oppId);
@@ -141,12 +178,21 @@ export async function markWon(
   const supabase = await createClient();
   const userId = await currentUserId();
 
+  type OppWonRow = { machines: number; amount: number; entity_id: string } & Record<
+    `meddic_${MeddicKey}`,
+    string | null
+  >;
+
   const { data: opp, error: fetchErr } = await supabase
     .from("opportunities")
-    .select("machines, amount, entity_id")
+    .select(["machines, amount, entity_id", ...MEDDIC_COLUMNS].join(", "))
     .eq("id", oppId)
-    .single();
+    .single<OppWonRow>();
   if (fetchErr || !opp) return { ok: false, error: "Opportunité introuvable" };
+
+  if (meddicRequired(opp.machines) && !isMeddicComplete(meddicFromRow(opp as unknown as Record<string, unknown>))) {
+    return { ok: false, error: MEDDIC_BLOCK_MESSAGE };
+  }
 
   const { error: updateErr } = await supabase
     .from("opportunities")
@@ -228,6 +274,7 @@ export type NewOpportunityInput = {
   prob: number;
   closeDate: string | null;
   source: string;
+  meddic?: Record<MeddicKey, string>;
 };
 
 export async function createOpportunity(
@@ -235,6 +282,14 @@ export async function createOpportunity(
 ): Promise<{ ok: boolean; error?: string; id?: string }> {
   const supabase = await createClient();
   const userId = await currentUserId();
+
+  if (
+    input.stage !== "qualification" &&
+    meddicRequired(input.machines) &&
+    !isMeddicComplete(input.meddic ?? {})
+  ) {
+    return { ok: false, error: MEDDIC_BLOCK_MESSAGE };
+  }
 
   let entityId: string;
   const { data: existing } = await supabase
@@ -268,6 +323,9 @@ export async function createOpportunity(
       prob: input.prob,
       close_date: input.closeDate,
       source: input.source,
+      ...Object.fromEntries(
+        MEDDIC_FIELDS.map((f) => [`meddic_${f.key}`, input.meddic?.[f.key]?.trim() || null]),
+      ),
     })
     .select("id")
     .single();

@@ -86,6 +86,13 @@ create table public.opportunities (
   install_date  date,
   closed_on     date,
   notes         text,
+  -- Qualification MEDDIC — obligatoire au-delà de 5 machines (voir src/lib/meddic.ts)
+  meddic_metrics           text,
+  meddic_economic_buyer    text,
+  meddic_decision_criteria text,
+  meddic_decision_process  text,
+  meddic_pain              text,
+  meddic_champion          text,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );

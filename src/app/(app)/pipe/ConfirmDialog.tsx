@@ -8,6 +8,8 @@ export type ConfirmRequest = {
   withComment?: boolean;
   extraCheckboxLabel?: string;
   extraCheckboxDefault?: boolean;
+  /** Affiche un unique bouton "Compris" au lieu du couple Annuler/Confirmer — pour les blocages informatifs. */
+  alertOnly?: boolean;
   onConfirm: (result: { comment: string; extraChecked: boolean }) => void;
   onCancel: () => void;
 };
@@ -63,19 +65,21 @@ export function ConfirmDialog({ request }: { request: ConfirmRequest | null }) {
         )}
 
         <div className="flex justify-end gap-2">
+          {!request.alertOnly && (
+            <button
+              onClick={() => close(false)}
+              className="rounded-lg border px-4 py-2 text-[12.5px] font-semibold"
+              style={{ borderColor: "var(--line)" }}
+            >
+              Annuler
+            </button>
+          )}
           <button
-            onClick={() => close(false)}
-            className="rounded-lg border px-4 py-2 text-[12.5px] font-semibold"
-            style={{ borderColor: "var(--line)" }}
-          >
-            Annuler
-          </button>
-          <button
-            onClick={() => close(true)}
+            onClick={() => close(!request.alertOnly)}
             className="rounded-lg px-4 py-2 text-[12.5px] font-semibold text-white"
-            style={{ background: "var(--teal)" }}
+            style={{ background: request.alertOnly ? "var(--red)" : "var(--teal)" }}
           >
-            Confirmer
+            {request.alertOnly ? "Compris" : "Confirmer"}
           </button>
         </div>
       </div>

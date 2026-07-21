@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { STAGES, PROB_OPTIONS, SOURCES, stageOf } from "@/lib/stages";
 import { keur } from "@/lib/format";
+import { MEDDIC_FIELDS, isMeddicComplete, meddicRequired, type MeddicKey } from "@/lib/meddic";
 import { changeStage, saveOpportunity, markWon, markLost, createOpportunity } from "./actions";
 import type { ConfirmRequest } from "./ConfirmDialog";
 import type { AeOption, CurrentUser, OppRow } from "./types";
@@ -65,9 +66,33 @@ function EditOpp({
   const [closeDate, setCloseDate] = useState(opp.close_date ?? "");
   const [installDate, setInstallDate] = useState(opp.install_date ?? "");
   const [notes, setNotes] = useState(opp.notes ?? "");
+  const [meddic, setMeddic] = useState<Record<MeddicKey, string>>(() =>
+    Object.fromEntries(MEDDIC_FIELDS.map((f) => [f.key, opp[`meddic_${f.key}`] ?? ""])) as Record<
+      MeddicKey,
+      string
+    >,
+  );
   const [pending, setPending] = useState(false);
 
   const wAmount = (amount * prob) / 100;
+  const meddicApplies = meddicRequired(machines);
+  const meddicOk = isMeddicComplete(meddic);
+
+  const blockedMeddicAlert = async (context: string) => {
+    await confirm({
+      title: "MEDDIC incomplet",
+      alertOnly: true,
+      message: (
+        <>
+          Cette opportunité compte <b>{machines} machines</b> (plus de 5) : la qualification MEDDIC
+          doit être complète avant de {context}.
+          <br />
+          Remplissez les 6 champs dans la section « Qualification MEDDIC » ci-dessous puis
+          réessayez.
+        </>
+      ),
+    });
+  };
 
   const handleSave = async () => {
     // Le state "pending" ne doit couvrir que les appels serveur, pas
@@ -81,6 +106,7 @@ function EditOpp({
       closeDate: closeDate || null,
       installDate: installDate || null,
       notes,
+      meddic,
     });
     setPending(false);
 
@@ -89,6 +115,12 @@ function EditOpp({
       const to = stageOf(stage)!;
       const stages = STAGES.map((s) => s.id);
       const dir = stages.indexOf(to.id) > stages.indexOf(from.id) ? "up" : "down";
+
+      if (dir === "up" && meddicApplies && !meddicOk) {
+        await blockedMeddicAlert("faire progresser l'étape");
+        return;
+      }
+
       const r = await confirm({
         title: "Changement d'étape",
         message: (
@@ -119,6 +151,10 @@ function EditOpp({
   };
 
   const handleWon = async () => {
+    if (meddicApplies && !meddicOk) {
+      await blockedMeddicAlert("marquer l'opportunité comme gagnée");
+      return;
+    }
     const r = await confirm({
       title: "Marquer gagnée",
       withComment: true,
@@ -252,6 +288,8 @@ function EditOpp({
           <b className="font-display">{((machines * prob) / 100).toFixed(1)}</b> machines pondérées
         </div>
 
+        <MeddicSection meddic={meddic} setMeddic={setMeddic} required={meddicApplies} />
+
         <div className="text-[11.5px] leading-relaxed text-[var(--muted)]">
           <div className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--ink)]">
             Référence Dynamics
@@ -297,12 +335,24 @@ function CreateOpp({
   const [prob, setProb] = useState(20);
   const [closeDate, setCloseDate] = useState("");
   const [source, setSource] = useState(SOURCES[0]);
+  const [meddic, setMeddic] = useState<Record<MeddicKey, string>>(() =>
+    Object.fromEntries(MEDDIC_FIELDS.map((f) => [f.key, ""])) as Record<MeddicKey, string>,
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const meddicApplies = meddicRequired(machines);
+  const meddicRequiredNow = meddicApplies && stage !== "qualification";
 
   const handleCreate = () => {
     if (!clientName.trim()) {
       setError("Indiquez le compte client");
+      return;
+    }
+    if (meddicRequiredNow && !isMeddicComplete(meddic)) {
+      setError(
+        "Cette opportunité de plus de 5 machines démarre au-delà de Qualification : complétez les 6 champs MEDDIC ci-dessous.",
+      );
       return;
     }
     startTransition(async () => {
@@ -316,6 +366,7 @@ function CreateOpp({
         prob,
         closeDate: closeDate || null,
         source,
+        meddic,
       });
       if (!r.ok) {
         setError(r.error ?? "Échec de création");
@@ -429,6 +480,10 @@ function CreateOpp({
           </select>
         </Field>
 
+        {meddicApplies && (
+          <MeddicSection meddic={meddic} setMeddic={setMeddic} required={meddicRequiredNow} />
+        )}
+
         {error && <div className="text-[12.5px] font-semibold text-[var(--red)]">{error}</div>}
       </div>
 
@@ -447,5 +502,56 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {label}
       {children}
     </label>
+  );
+}
+
+function MeddicSection({
+  meddic,
+  setMeddic,
+  required,
+}: {
+  meddic: Record<MeddicKey, string>;
+  setMeddic: (m: Record<MeddicKey, string>) => void;
+  required: boolean;
+}) {
+  const filled = MEDDIC_FIELDS.filter((f) => meddic[f.key].trim().length > 0).length;
+  const complete = filled === MEDDIC_FIELDS.length;
+
+  return (
+    <div className="mt-4 rounded-lg border p-3" style={{ borderColor: "var(--line)" }}>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink)]">
+          Qualification MEDDIC
+        </div>
+        <span
+          className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+          style={{
+            background: complete ? "var(--teal-soft)" : required ? "#FBEAE6" : "#F0F3EF",
+            color: complete ? "var(--teal)" : required ? "var(--red)" : "var(--muted)",
+          }}
+        >
+          {filled}/{MEDDIC_FIELDS.length} {required && !complete ? "· obligatoire" : ""}
+        </span>
+      </div>
+      {required && !complete && (
+        <div className="mb-2 text-[11.5px] font-semibold" style={{ color: "var(--red)" }}>
+          Plus de 5 machines : les 6 champs doivent être remplis pour signer ou avancer au-delà de
+          Qualification.
+        </div>
+      )}
+      <div className="space-y-2">
+        {MEDDIC_FIELDS.map((f) => (
+          <label key={f.key} className="flex flex-col gap-1 text-xs font-semibold text-[var(--ink)]">
+            {f.label} <span className="font-normal text-[var(--muted)]">— {f.hint}</span>
+            <textarea
+              rows={2}
+              value={meddic[f.key]}
+              onChange={(e) => setMeddic({ ...meddic, [f.key]: e.target.value })}
+              className="input"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
