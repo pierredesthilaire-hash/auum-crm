@@ -1,22 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { PipeBoard } from "./PipeBoard";
 import type { OppRow } from "./types";
 
 export default async function PipePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", user!.id)
-    .single();
-
-  const isDirection = profile?.role === "direction";
-
-  const [{ data: opps }, { data: aes }, { data: entities }] = await Promise.all([
+  const [user, { data: opps }, { data: aes }, { data: entities }] = await Promise.all([
+    getCurrentUser(),
     supabase
       .from("opportunities")
       .select(
@@ -34,7 +25,7 @@ export default async function PipePage() {
       initialOpps={opps ?? []}
       aes={aes ?? []}
       entityNames={(entities ?? []).map((e) => e.name)}
-      currentUser={{ id: profile!.id, fullName: profile!.full_name, isDirection }}
+      currentUser={{ id: user!.id, fullName: user!.fullName, isDirection: user!.isDirection }}
     />
   );
 }

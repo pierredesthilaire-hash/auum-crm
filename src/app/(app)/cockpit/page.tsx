@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { todayISO } from "@/lib/dates";
 import { DEFAULT_BENCHMARKS, type Benchmarks } from "@/lib/lifecycle";
 import { CockpitView } from "./CockpitView";
@@ -7,17 +8,9 @@ import type { AeOption, AuditRow, CockpitOpp } from "./types";
 
 export default async function CockpitPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single();
-
-  if (profile?.role !== "direction") {
+  if (!user?.isDirection) {
     redirect("/dashboard");
   }
 

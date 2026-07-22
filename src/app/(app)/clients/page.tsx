@@ -1,23 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { ClientsGrid } from "./ClientsGrid";
 import type { AeOption, ContactRow, EntityOpp, EntityRow, GroupOption, NewsRow } from "./types";
 import type { SegConfig } from "@/lib/segments";
 
 export default async function ClientsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", user!.id)
-    .single();
-
-  const isDirection = profile?.role === "direction";
 
   const [
+    user,
     { data: entities },
     { data: opps },
     { data: groups },
@@ -26,6 +17,7 @@ export default async function ClientsPage() {
     { data: news },
     { data: contacts },
   ] = await Promise.all([
+    getCurrentUser(),
     supabase
       .from("entities")
       .select(
@@ -56,7 +48,7 @@ export default async function ClientsPage() {
       news={news ?? []}
       contacts={contacts ?? []}
       segConfig={segConfig}
-      currentUser={{ id: profile!.id, fullName: profile!.full_name, isDirection }}
+      currentUser={{ id: user!.id, fullName: user!.fullName, isDirection: user!.isDirection }}
     />
   );
 }

@@ -9,6 +9,9 @@ create table public.profiles (
   id          uuid primary key references auth.users(id) on delete cascade,
   full_name   text not null,
   role        text not null default 'ae' check (role in ('ae','direction')),
+  -- Dernière exécution de ensureAutoTasks() pour cet AE — évite de
+  -- regénérer les tâches auto à chaque chargement du Dashboard.
+  autotasks_ran_on date,
   created_at  timestamptz default now()
 );
 
@@ -273,6 +276,20 @@ create policy "profiles select" on public.profiles for select
 
 create policy "profiles update direction" on public.profiles for update
   using ( public.is_direction() );
+
+-- RPC dédiée pour laisser un AE marquer sa propre date d'exécution des
+-- tâches auto (throttling), sans ouvrir une policy d'update self-service
+-- sur toute la table profiles (qui exposerait `role` à une auto-promotion).
+create or replace function public.mark_autotasks_ran(target_ae_id uuid, run_date date)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.profiles
+  set autotasks_ran_on = run_date
+  where id = target_ae_id and (id = auth.uid() or public.is_direction());
+$$;
 
 -- ---------- entities ----------
 alter table public.entities enable row level security;

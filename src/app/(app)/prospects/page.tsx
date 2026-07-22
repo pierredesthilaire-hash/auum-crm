@@ -1,22 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { ProspectsView } from "./ProspectsView";
 import type { AeOption, ProspectRow } from "./types";
 
 export default async function ProspectsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", user!.id)
-    .single();
-
-  const isDirection = profile?.role === "direction";
-
-  const [{ data: prospects }, { data: aes }] = await Promise.all([
+  const [user, { data: prospects }, { data: aes }] = await Promise.all([
+    getCurrentUser(),
     supabase
       .from("prospects")
       .select(
@@ -32,7 +23,7 @@ export default async function ProspectsPage() {
     <ProspectsView
       prospects={prospects ?? []}
       aes={aes ?? []}
-      currentUser={{ id: profile!.id, fullName: profile!.full_name, isDirection }}
+      currentUser={{ id: user!.id, fullName: user!.fullName, isDirection: user!.isDirection }}
     />
   );
 }

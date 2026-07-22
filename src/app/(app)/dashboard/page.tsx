@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { todayISO } from "@/lib/dates";
 import { ensureAutoTasks } from "./autoTasks";
 import { DashboardView } from "./DashboardView";
 import type { AeOption, MeetingRow, OppKpi, TaskRow } from "./types";
+
+type AeRow = AeOption & { autotasks_ran_on: string | null };
 
 export default async function DashboardPage({
   searchParams,
@@ -11,33 +14,29 @@ export default async function DashboardPage({
 }) {
   const { ae: aeParam } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", user!.id)
-    .single();
+  const [user, { data: aes }] = await Promise.all([
+    getCurrentUser(),
+    supabase
+      .from("profiles")
+      .select("id, full_name, autotasks_ran_on")
+      .eq("role", "ae")
+      .order("full_name")
+      .returns<AeRow[]>(),
+  ]);
 
-  const isDirection = profile?.role === "direction";
-
-  const { data: aes } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("role", "ae")
-    .order("full_name")
-    .returns<AeOption[]>();
-
-  const targetAeId = isDirection && aeParam ? aeParam : profile!.id;
-  const targetAe = isDirection
-    ? (aes ?? []).find((a) => a.id === targetAeId) ?? { id: profile!.id, full_name: profile!.full_name }
-    : { id: profile!.id, full_name: profile!.full_name };
+  const isDirection = user!.isDirection;
+  const targetAeId = isDirection && aeParam ? aeParam : user!.id;
+  const targetAe: AeRow =
+    (aes ?? []).find((a) => a.id === targetAeId) ?? {
+      id: user!.id,
+      full_name: user!.fullName,
+      autotasks_ran_on: null,
+    };
 
   const today = todayISO();
 
-  await ensureAutoTasks(supabase, targetAe.id, today);
+  await ensureAutoTasks(supabase, targetAe.id, targetAe.autotasks_ran_on, today);
 
   const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }] = await Promise.all([
     supabase

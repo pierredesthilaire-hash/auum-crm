@@ -1,22 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { Sidebar } from "@/components/Sidebar";
 import { signOut } from "../login/actions";
 
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user!.id)
-    .single();
-
-  const isDirection = profile?.role === "direction";
+  const user = await getCurrentUser();
+  const isDirection = user?.isDirection ?? false;
 
   return (
     <div className="flex min-h-screen">
@@ -29,7 +19,7 @@ export default async function AppLayout({
           <div className="font-display text-[17px] font-semibold">auum CRM</div>
           <div className="ml-auto flex items-center gap-3 text-xs text-[var(--muted)]">
             <span>
-              {profile?.full_name} · {isDirection ? "direction" : "AE"}
+              {user?.fullName} · {isDirection ? "direction" : "AE"}
             </span>
             <form action={signOut}>
               <button
