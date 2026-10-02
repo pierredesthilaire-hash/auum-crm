@@ -66,6 +66,8 @@ export async function changeStage(
     type: "stage_change",
     detail: `${from.label} → ${to.label}${comment ? " · " + comment : ""}`,
     dir,
+    from_stage: from.id,
+    to_stage: to.id,
   });
 
   revalidatePath("/pipe");
@@ -440,6 +442,7 @@ export async function createOpportunity(
     user_id: userId,
     opp_id: opp.id,
     type: "opp_created",
+    to_stage: STAGES[0].id,
     detail: `Créée · ${input.machines} machine(s) · ${keur(input.amount)}`,
     delta_machines: input.machines,
     delta_amount: input.amount,

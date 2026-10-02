@@ -170,6 +170,8 @@ create table public.audit_log (
   type           text not null,   -- opp_created, stage_change, field_change, opp_won, opp_lost, parc_update, task, bdd_request, bdd_decision, outbound
   detail         text,
   dir            text,            -- 'up' | 'down' pour stage_change
+  from_stage     text,            -- id d'étape avant (stage_change)
+  to_stage       text,            -- id d'étape après (stage_change, opp_created)
   delta_machines integer,
   delta_amount   numeric(12,2)
 );

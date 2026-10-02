@@ -30,3 +30,5 @@ export type AuditRow = {
 };
 
 export type AgingTask = { opp_id: string; status: string; due: string | null };
+
+export type { WAudit, WTask, WMeeting, WQuote } from "@/lib/weekly";

@@ -6,9 +6,13 @@ import { STAGES } from "@/lib/stages";
 import { computeLifecycle, type Benchmarks } from "@/lib/lifecycle";
 import { NewTaskDrawer } from "../dashboard/NewTaskDrawer";
 import { JournalView } from "./JournalView";
+import { WeeklyView } from "./WeeklyView";
+import { ForecastPanel } from "@/components/ForecastPanel";
+import type { WAudit, WTask, WMeeting, WQuote } from "./types";
 import type { AeOption, AgingTask, AuditRow, CockpitOpp, EntityParc } from "./types";
 
 export function CockpitView({
+  weekly,
   opps,
   aes,
   benchmarks,
@@ -17,6 +21,7 @@ export function CockpitView({
   audit,
   today,
 }: {
+  weekly: { audit: WAudit[]; tasks: WTask[]; meetings: WMeeting[]; quotes: WQuote[] };
   opps: CockpitOpp[];
   aes: AeOption[];
   benchmarks: Benchmarks;
@@ -25,7 +30,7 @@ export function CockpitView({
   audit: AuditRow[];
   today: string;
 }) {
-  const [tab, setTab] = useState<"vue" | "journal">("vue");
+  const [tab, setTab] = useState<"vue" | "hebdo" | "journal">("vue");
   const [aeFilter, setAeFilter] = useState("ALL");
   const [showTask, setShowTask] = useState(false);
   const [taskMsg, setTaskMsg] = useState<string | null>(null);
@@ -52,7 +57,7 @@ export function CockpitView({
   return (
     <div>
       <div className="mb-4 flex gap-2">
-        {(["vue", "journal"] as const).map((k) => (
+        {(["vue", "hebdo", "journal"] as const).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -63,7 +68,7 @@ export function CockpitView({
                 : { borderColor: "var(--line)", color: "var(--muted)", background: "#fff" }
             }
           >
-            {k === "vue" ? "Vue d'ensemble" : "Journal & évolutions du pipe"}
+            {k === "vue" ? "Vue d'ensemble" : k === "hebdo" ? "Hebdo & points 1:1" : "Journal & évolutions du pipe"}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
@@ -84,6 +89,13 @@ export function CockpitView({
 
       {tab === "journal" ? (
         <JournalView audit={audit} users={aes} />
+      ) : tab === "hebdo" ? (
+        <WeeklyView
+          data={{ ...weekly, opps }}
+          aes={aes}
+          benchmarks={benchmarks}
+          today={today}
+        />
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -103,6 +115,8 @@ export function CockpitView({
               </button>
             ))}
           </div>
+
+          <ForecastPanel opps={filtered} today={today} parc={parcTot} />
 
           <div className="mb-4 grid grid-cols-6 gap-2.5">
             <Kpi v={keur(tot)} l="Pipe total" />
