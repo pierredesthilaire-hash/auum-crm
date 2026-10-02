@@ -1,3 +1,5 @@
+import type { QuoteRow } from "@/lib/quotes";
+
 export type OppContact = {
   id: string;
   full_name: string;
@@ -32,6 +34,7 @@ export type OppRow = {
   entities: { name: string } | null;
   profiles: { full_name: string } | null;
   opportunity_contacts: { contacts: OppContact | null }[];
+  quotes: QuoteRow[];
 };
 
 export type AeOption = { id: string; full_name: string };

@@ -15,6 +15,7 @@ import {
   removeOppContact,
   type NewContactInput,
 } from "./actions";
+import { QuotesSection } from "./QuotesSection";
 import type { ConfirmRequest } from "./ConfirmDialog";
 import type { AeOption, CurrentUser, OppContact, OppRow } from "./types";
 
@@ -299,6 +300,8 @@ function EditOpp({
         </div>
 
         <OppContacts opp={opp} />
+
+        <QuotesSection opp={opp} />
 
         <MeddicSection meddic={meddic} setMeddic={setMeddic} required={meddicApplies} />
 

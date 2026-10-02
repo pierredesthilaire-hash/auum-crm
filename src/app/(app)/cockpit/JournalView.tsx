@@ -12,6 +12,7 @@ const JTYPES: Record<string, [string, string]> = {
   opp_lost: ["Perdue", "#C24E3A"],
   parc_update: ["Parc", "#7B5EA7"],
   task: ["Tâche", "#C98A1B"],
+  quote: ["Devis", "#0E3F30"],
 };
 
 const MONTH_LABELS = [
