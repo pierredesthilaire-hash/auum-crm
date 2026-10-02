@@ -10,9 +10,9 @@ type AeRow = AeOption & { autotasks_ran_on: string | null };
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ae?: string }>;
+  searchParams: Promise<{ ae?: string; outlook?: string }>;
 }) {
-  const { ae: aeParam } = await searchParams;
+  const { ae: aeParam, outlook: outlookStatus } = await searchParams;
   const supabase = await createClient();
 
   const [user, { data: aes }] = await Promise.all([
@@ -38,7 +38,7 @@ export default async function DashboardPage({
 
   await ensureAutoTasks(supabase, targetAe.id, targetAe.autotasks_ran_on, today);
 
-  const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }] = await Promise.all([
+  const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }, { data: msToken }] = await Promise.all([
     supabase
       .from("opportunities")
       .select("id, amount, prob, machines, close_date")
@@ -63,6 +63,7 @@ export default async function DashboardPage({
       .eq("owner_id", targetAe.id)
       .eq("status", "open")
       .returns<TaskRow[]>(),
+    supabase.from("ms_tokens").select("user_id").eq("user_id", user!.id).maybeSingle(),
   ]);
 
   return (
@@ -76,6 +77,9 @@ export default async function DashboardPage({
       meetings={meetings ?? []}
       tasks={tasks ?? []}
       today={today}
+      isOwn={targetAe.id === user!.id}
+      outlookConnected={!!msToken}
+      outlookStatus={outlookStatus ?? null}
     />
   );
 }

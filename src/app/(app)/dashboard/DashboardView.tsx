@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { keur, fdate } from "@/lib/format";
-import { markTaskDone, snoozeTask } from "./actions";
+import { markTaskDone, snoozeTask, syncOutlook } from "./actions";
 import { NewTaskDrawer } from "./NewTaskDrawer";
 import type { AeOption, MeetingRow, OppKpi, TaskRow } from "./types";
 
@@ -26,6 +26,9 @@ export function DashboardView({
   meetings,
   tasks,
   today,
+  isOwn,
+  outlookConnected,
+  outlookStatus,
 }: {
   targetAe: AeOption;
   aes: AeOption[];
@@ -36,8 +39,27 @@ export function DashboardView({
   meetings: MeetingRow[];
   tasks: TaskRow[];
   today: string;
+  isOwn: boolean;
+  outlookConnected: boolean;
+  outlookStatus: string | null;
 }) {
   const [showNewTask, setShowNewTask] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(
+    outlookStatus === "ok"
+      ? "Outlook connecté. Cliquez sur « Synchroniser » pour charger vos RDV."
+      : outlookStatus === "error"
+        ? "La connexion à Outlook a échoué. Réessayez."
+        : outlookStatus === "config"
+          ? "La connexion Outlook n'est pas encore configurée côté CRM."
+          : null,
+  );
+  const doSync = async () => {
+    setSyncing(true);
+    const r = await syncOutlook();
+    setSyncing(false);
+    setSyncMsg(r.ok ? `${r.count} RDV synchronisé(s) (7 prochains jours).` : (r.error ?? "Échec de la synchronisation"));
+  };
 
   const wAmount = openOpps.reduce((s, o) => s + (o.amount * o.prob) / 100, 0);
   const wMachines = openOpps.reduce((s, o) => s + (o.machines * o.prob) / 100, 0);
@@ -132,10 +154,25 @@ export function DashboardView({
               ))}
             </div>
           )}
-          <div className="mt-3 rounded-lg p-2.5 text-[10.5px] leading-relaxed text-[var(--muted)]" style={{ background: "var(--bg)" }}>
-            Une fois Outlook connecté (mission 2), les RDV réels de {targetAe.full_name.split(" ")[0]}
-            {" "}s&apos;afficheront ici.
-          </div>
+          {isOwn && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg p-2.5 text-[11px]" style={{ background: "var(--bg)" }}>
+              {outlookConnected ? (
+                <>
+                  <button onClick={doSync} disabled={syncing} className="rounded-full border px-3 py-1 font-semibold" style={{ borderColor: "var(--line)", background: "#fff" }}>
+                    {syncing ? "Synchronisation…" : "🔄 Synchroniser mon Outlook"}
+                  </button>
+                  <a href="/api/outlook/connect" className="text-[var(--muted)] underline">
+                    Reconnecter
+                  </a>
+                </>
+              ) : (
+                <a href="/api/outlook/connect" className="rounded-full border px-3 py-1 font-semibold" style={{ borderColor: "var(--pine)", background: "var(--pine)", color: "#fff" }}>
+                  Connecter mon Outlook
+                </a>
+              )}
+              {syncMsg && <span className="text-[var(--muted)]">{syncMsg}</span>}
+            </div>
+          )}
         </div>
 
         {/* Tâches */}

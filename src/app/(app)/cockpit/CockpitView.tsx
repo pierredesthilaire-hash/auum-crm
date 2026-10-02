@@ -5,18 +5,20 @@ import { keur, num, aeColor } from "@/lib/format";
 import { STAGES } from "@/lib/stages";
 import { computeLifecycle, type Benchmarks } from "@/lib/lifecycle";
 import { JournalView } from "./JournalView";
-import type { AeOption, AuditRow, CockpitOpp } from "./types";
+import type { AeOption, AgingTask, AuditRow, CockpitOpp } from "./types";
 
 export function CockpitView({
   opps,
   aes,
   benchmarks,
+  agingTasks,
   audit,
   today,
 }: {
   opps: CockpitOpp[];
   aes: AeOption[];
   benchmarks: Benchmarks;
+  agingTasks: AgingTask[];
   audit: AuditRow[];
   today: string;
 }) {
@@ -40,6 +42,7 @@ export function CockpitView({
   const wAdjTot = lifecycles.reduce((s, { lc }) => s + lc.wAdj, 0);
   const mach = filtered.reduce((s, o) => s + o.machines, 0);
   const wmach = filtered.reduce((s, o) => s + (o.machines * o.prob) / 100, 0);
+  const taskByOpp = new Map(agingTasks.map((t) => [t.opp_id, t]));
   const aging = lifecycles.filter(({ lc }) => lc.aging).sort((a, b) => b.opp.amount - a.opp.amount);
 
   return (
@@ -190,10 +193,11 @@ export function CockpitView({
                       <th className="pb-2 text-right">Montant</th>
                       <th className="pb-2 text-right">Pondéré AE</th>
                       <th className="pb-2 text-right">Pondéré ajusté</th>
+                      <th className="pb-2">Tâche</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {aging.slice(0, 8).map(({ opp: o, lc }) => (
+                    {aging.map(({ opp: o, lc }) => (
                       <tr key={o.id} className="border-t" style={{ borderColor: "var(--line)" }}>
                         <td className="py-1.5 font-semibold">{o.entities?.name}</td>
                         <td className="max-w-[220px] truncate py-1.5">{o.name}</td>
@@ -206,17 +210,19 @@ export function CockpitView({
                         <td className="py-1.5 text-right">{keur(o.amount)}</td>
                         <td className="py-1.5 text-right">{keur((o.amount * o.prob) / 100)}</td>
                         <td className="py-1.5 text-right font-semibold">{keur(lc.wAdj)}</td>
+                        <td className="py-1.5">
+                          {(() => {
+                            const t = taskByOpp.get(o.id);
+                            if (!t) return "—";
+                            return t.status === "done" ? "✅ faite" : `à faire${t.due ? ` (${t.due.split("-").reverse().join("/")})` : ""}`;
+                          })()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {aging.length > 8 && (
-                <div className="mt-2 text-center text-[11px] text-[var(--muted)]">
-                  + {aging.length - 8} autre(s) vieillissante(s)
-                </div>
-              )}
-            </div>
+                          </div>
           )}
         </>
       )}

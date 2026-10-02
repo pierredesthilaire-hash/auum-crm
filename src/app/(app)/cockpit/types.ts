@@ -10,6 +10,7 @@ export type CockpitOpp = {
   source: string | null;
   close_date: string | null;
   created_at: string;
+  ae_id: string;
   entities: { name: string } | null;
   profiles: { full_name: string } | null;
 };
@@ -25,3 +26,5 @@ export type AuditRow = {
   profiles: { full_name: string } | null;
   opportunities: { name: string; entities: { name: string } | null } | null;
 };
+
+export type AgingTask = { opp_id: string; status: string; due: string | null };

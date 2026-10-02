@@ -51,3 +51,6 @@ backups/
 *.xlsx
 *.xls
 *.csv
+
+# scripts locaux contenant des identifiants : jamais commités
+scripts/local-*.ts

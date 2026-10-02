@@ -104,3 +104,40 @@ export async function ensureAutoTasks(
 
   await supabase.rpc("mark_autotasks_ran", { target_ae_id: aeId, run_date: today });
 }
+
+/**
+ * Cockpit (direction) : crée la tâche « Relancer ou statuer » pour chaque
+ * opportunité vieillissante, chez son AE, sans attendre qu'il ouvre son
+ * Dashboard. Idempotent (unique (rule, opp_id)) : une tâche déjà créée — même
+ * terminée — n'est jamais recréée.
+ */
+export async function ensureAgingTasksForAll(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  opps: Array<{
+    id: string;
+    name: string;
+    source: string | null;
+    created_at: string;
+    ae_id: string;
+    entities: { name: string } | null;
+  }>,
+  benchmarks: Benchmarks,
+  today: string,
+) {
+  const rows = opps
+    .filter((o) => isAging(o, benchmarks, today))
+    .map((o) => ({
+      title: `⏳ Relancer ou statuer — ${o.entities?.name ?? o.name}`,
+      type: "Relance",
+      due: addDaysISO(today, 3),
+      owner_id: o.ae_id,
+      opp_id: o.id,
+      auto: true,
+      rule: "aging",
+      note: "Oppo vieillissante par rapport au cycle de vente de référence — relancer le client ou fermer l'oppo.",
+      status: "open",
+    }));
+  if (!rows.length) return;
+  await supabase.from("tasks").upsert(rows, { onConflict: "rule,opp_id", ignoreDuplicates: true });
+}

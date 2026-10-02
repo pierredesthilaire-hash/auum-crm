@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { todayISO } from "@/lib/dates";
 import { DEFAULT_BENCHMARKS, type Benchmarks } from "@/lib/lifecycle";
+import { ensureAgingTasksForAll } from "../dashboard/autoTasks";
 import { CockpitView } from "./CockpitView";
-import type { AeOption, AuditRow, CockpitOpp } from "./types";
+import type { AeOption, AgingTask, AuditRow, CockpitOpp } from "./types";
 
 export default async function CockpitPage() {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function CockpitPage() {
     supabase
       .from("opportunities")
       .select(
-        "id, name, stage, machines, amount, prob, source, close_date, created_at, entities(name), profiles(full_name)",
+        "id, name, stage, machines, amount, prob, source, close_date, created_at, ae_id, entities(name), profiles(full_name)",
       )
       .eq("state", "open")
       .returns<CockpitOpp[]>(),
@@ -34,13 +35,23 @@ export default async function CockpitPage() {
 
   const benchmarks = (benchSetting?.value as Benchmarks) ?? DEFAULT_BENCHMARKS;
 
+  const today = todayISO();
+  await ensureAgingTasksForAll(supabase, opps ?? [], benchmarks, today);
+  const { data: agingTasks } = await supabase
+    .from("tasks")
+    .select("opp_id, status, due")
+    .eq("rule", "aging")
+    .in("opp_id", (opps ?? []).map((o) => o.id))
+    .returns<AgingTask[]>();
+
   return (
     <CockpitView
+      agingTasks={agingTasks ?? []}
       opps={opps ?? []}
       aes={aes ?? []}
       benchmarks={benchmarks}
       audit={audit ?? []}
-      today={todayISO()}
+      today={today}
     />
   );
 }

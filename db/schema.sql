@@ -408,6 +408,9 @@ create policy "meetings insert" on public.meetings for insert
 create policy "meetings update" on public.meetings for update
   using ( ae_id = auth.uid() or public.is_direction() );
 
+create policy "meetings delete own" on public.meetings for delete
+  using ( ae_id = auth.uid() );
+
 -- ---------- ms_tokens (refresh token Graph — jamais accessible à la direction) ----------
 alter table public.ms_tokens enable row level security;
 
