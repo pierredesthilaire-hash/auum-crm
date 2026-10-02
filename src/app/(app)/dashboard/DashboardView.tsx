@@ -28,6 +28,7 @@ export function DashboardView({
   meetings,
   tasks,
   today,
+  parc,
   isOwn,
   outlookConnected,
   outlookStatus,
@@ -41,6 +42,7 @@ export function DashboardView({
   meetings: MeetingRow[];
   tasks: TaskRow[];
   today: string;
+  parc: number;
   isOwn: boolean;
   outlookConnected: boolean;
   outlookStatus: string | null;
@@ -63,8 +65,8 @@ export function DashboardView({
     setSyncMsg(r.ok ? `${r.count} RDV synchronisé(s) (7 prochains jours).` : (r.error ?? "Échec de la synchronisation"));
   };
 
-  const wAmount = openOpps.reduce((s, o) => s + (o.amount * o.prob) / 100, 0);
-  const wMachines = openOpps.reduce((s, o) => s + (o.machines * o.prob) / 100, 0);
+  const pipeAmount = openOpps.reduce((s, o) => s + o.amount, 0);
+  const pipeMachines = openOpps.reduce((s, o) => s + o.machines, 0);
   const nextClose = [...openOpps]
     .filter((o) => o.close_date)
     .sort((a, b) => (a.close_date! < b.close_date! ? -1 : 1))[0];
@@ -117,12 +119,12 @@ export function DashboardView({
         </div>
       </div>
 
-      <ForecastPanel opps={openOpps} today={today} />
+      <ForecastPanel opps={openOpps} today={today} parc={parc} />
 
       <div className="mb-4 grid grid-cols-6 gap-2.5">
         <Kpi v={openOpps.length} l="Oppos ouvertes" />
-        <Kpi v={keur(wAmount)} l="Pipe pondéré" accent />
-        <Kpi v={wMachines.toFixed(1)} l="Machines pondérées" accent />
+        <Kpi v={keur(pipeAmount)} l="Pipe total" accent />
+        <Kpi v={pipeMachines} l="Machines en pipe" accent />
         <Kpi v={wonCount} l="Ventes signées" />
         <Kpi v={wonMachines} l="Machines vendues" />
         <Kpi v={nextClose ? fdate(nextClose.close_date) : "—"} l="Prochain closing" amber={nextCloseLate} />

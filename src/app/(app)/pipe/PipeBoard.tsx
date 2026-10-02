@@ -15,11 +15,13 @@ export function PipeBoard({
   initialOpps,
   aes,
   entityNames,
+  entityParc,
   currentUser,
 }: {
   initialOpps: OppRow[];
   aes: AeOption[];
   entityNames: string[];
+  entityParc: { owner_id: string | null; parc: number }[];
   currentUser: CurrentUser;
 }) {
   const opps = initialOpps;
@@ -32,6 +34,10 @@ export function PipeBoard({
   const [confirmSeq, setConfirmSeq] = useState(0);
 
   const today = new Date().toISOString().slice(0, 10);
+  const aeFilterId = aes.find((a) => a.full_name === aeFilter)?.id;
+  const parc = entityParc
+    .filter((e) => aeFilter === "ALL" || e.owner_id === aeFilterId)
+    .reduce((s, e) => s + e.parc, 0);
 
   const confirm = (
     req: Omit<ConfirmRequest, "onConfirm" | "onCancel">,
@@ -158,7 +164,7 @@ export function PipeBoard({
         </button>
       </div>
 
-      <ForecastPanel opps={filtered} today={today} />
+      <ForecastPanel opps={filtered} today={today} parc={parc} />
 
       <div className="grid grid-cols-5 gap-3">
         {STAGES.map((st) => {

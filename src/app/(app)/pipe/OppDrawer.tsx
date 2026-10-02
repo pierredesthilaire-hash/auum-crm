@@ -85,7 +85,6 @@ function EditOpp({
   );
   const [pending, setPending] = useState(false);
 
-  const wAmount = (amount * prob) / 100;
   const meddicApplies = meddicRequired(machines);
   const meddicOk = isMeddicComplete(meddic);
 
@@ -290,14 +289,6 @@ function EditOpp({
             className="input"
           />
         </Field>
-
-        <div
-          className="rounded-lg p-3 text-[12.5px]"
-          style={{ background: "var(--teal-soft)" }}
-        >
-          Pondéré AE : <b className="font-display">{keur(wAmount)}</b> ·{" "}
-          <b className="font-display">{((machines * prob) / 100).toFixed(1)}</b> machines pondérées
-        </div>
 
         <OppContacts opp={opp} />
 

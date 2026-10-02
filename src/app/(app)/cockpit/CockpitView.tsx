@@ -5,13 +5,14 @@ import { keur, num, aeColor } from "@/lib/format";
 import { STAGES } from "@/lib/stages";
 import { computeLifecycle, type Benchmarks } from "@/lib/lifecycle";
 import { JournalView } from "./JournalView";
-import type { AeOption, AgingTask, AuditRow, CockpitOpp } from "./types";
+import type { AeOption, AgingTask, AuditRow, CockpitOpp, EntityParc } from "./types";
 
 export function CockpitView({
   opps,
   aes,
   benchmarks,
   agingTasks,
+  entityParc,
   audit,
   today,
 }: {
@@ -19,6 +20,7 @@ export function CockpitView({
   aes: AeOption[];
   benchmarks: Benchmarks;
   agingTasks: AgingTask[];
+  entityParc: EntityParc[];
   audit: AuditRow[];
   today: string;
 }) {
@@ -38,10 +40,9 @@ export function CockpitView({
   );
 
   const tot = filtered.reduce((s, o) => s + o.amount, 0);
-  const wtot = filtered.reduce((s, o) => s + (o.amount * o.prob) / 100, 0);
-  const wAdjTot = lifecycles.reduce((s, { lc }) => s + lc.wAdj, 0);
   const mach = filtered.reduce((s, o) => s + o.machines, 0);
-  const wmach = filtered.reduce((s, o) => s + (o.machines * o.prob) / 100, 0);
+  const aeFilterId = aes.find((a) => a.full_name === aeFilter)?.id;
+  const parcTot = entityParc.filter((e) => aeFilter === "ALL" || e.owner_id === aeFilterId).reduce((s, e) => s + e.parc, 0);
   const taskByOpp = new Map(agingTasks.map((t) => [t.opp_id, t]));
   const aging = lifecycles.filter(({ lc }) => lc.aging).sort((a, b) => b.opp.amount - a.opp.amount);
 
@@ -86,12 +87,11 @@ export function CockpitView({
             ))}
           </div>
 
-          <div className="mb-4 grid grid-cols-7 gap-2.5">
+          <div className="mb-4 grid grid-cols-6 gap-2.5">
             <Kpi v={keur(tot)} l="Pipe total" />
-            <Kpi v={keur(wtot)} l="Pipe pondéré (AE)" accent />
-            <Kpi v={keur(wAdjTot)} l="Pondéré ajusté lifecycle" accent />
-            <Kpi v={num(mach)} l="Machines en jeu" />
-            <Kpi v={num(wmach)} l="Machines pondérées" />
+            <Kpi v={num(mach)} l="Machines en pipe" />
+            <Kpi v={num(parcTot)} l="Parc actuel (machines)" />
+            <Kpi v={num(parcTot + mach)} l="Portefeuille estimé (parc + pipe)" accent />
             <Kpi v={filtered.length} l="Opportunités" />
             <Kpi v={aging.length} l={`Vieillissantes (âge > ${benchmarks.alertRatio}× cycle)`} amber={aging.length > 0} />
           </div>
@@ -130,7 +130,7 @@ export function CockpitView({
             {/* Pipe par AE */}
             <div className="rounded-xl border bg-white p-4" style={{ borderColor: "var(--line)" }}>
               <h3 className="font-display mb-3 text-[13.5px] font-semibold">
-                Pipe par AE <span className="text-[11px] font-normal text-[var(--muted)]">pondéré (plein) vs total (clair)</span>
+                Pipe par AE <span className="text-[11px] font-normal text-[var(--muted)]">montant total · nombre d&apos;opportunités</span>
               </h3>
               {(() => {
                 const rows = aeNames
@@ -139,12 +139,11 @@ export function CockpitView({
                     return {
                       a,
                       tot: oo.reduce((s, o) => s + o.amount, 0),
-                      w: oo.reduce((s, o) => s + (o.amount * o.prob) / 100, 0),
                       n: oo.length,
                     };
                   })
                   .filter((r) => r.n)
-                  .sort((x, y) => y.w - x.w);
+                  .sort((x, y) => y.tot - x.tot);
                 const maxT = Math.max(...rows.map((r) => r.tot), 1);
                 return rows.map((r) => {
                   const color = aeColor(r.a, aeNames);
@@ -153,16 +152,12 @@ export function CockpitView({
                       <div className="w-[100px] shrink-0 truncate text-[11.5px] font-semibold">{r.a.split(" ")[0]}</div>
                       <div className="relative h-[20px] flex-1 rounded-md" style={{ background: "#F0F3EF" }}>
                         <div
-                          className="absolute inset-y-0 left-0 rounded-md opacity-20"
-                          style={{ background: color, width: `${(r.tot / maxT) * 100}%` }}
-                        />
-                        <div
                           className="absolute inset-y-0 left-0 rounded-md"
-                          style={{ background: color, width: `${(r.w / maxT) * 100}%` }}
+                          style={{ background: color, width: `${(r.tot / maxT) * 100}%` }}
                         />
                       </div>
                       <div className="w-[150px] shrink-0 text-right text-[11px] text-[var(--muted)]">
-                        {keur(r.w)} / {keur(r.tot)} · {r.n}
+                        {keur(r.tot)} · {r.n}
                       </div>
                     </div>
                   );
@@ -171,13 +166,62 @@ export function CockpitView({
             </div>
           </div>
 
+          {/* Portefeuille par AE */}
+          <div className="mb-3.5 rounded-xl border bg-white p-4" style={{ borderColor: "var(--line)" }}>
+            <h3 className="font-display mb-3 text-[13.5px] font-semibold">
+              Portefeuille par AE{" "}
+              <span className="text-[11px] font-normal text-[var(--muted)]">parc actuel + machines en pipe</span>
+            </h3>
+            {(() => {
+              const parcOf = (id: string | undefined) => entityParc.filter((e) => e.owner_id === id).reduce((s2, e) => s2 + e.parc, 0);
+              const rows = aes.map((a) => {
+                const pipe = opps.filter((o) => o.ae_id === a.id).reduce((s2, o) => s2 + o.machines, 0);
+                const parc = parcOf(a.id);
+                return { name: a.full_name.split(" ")[0], parc, pipe };
+              });
+              const totParc = entityParc.reduce((s2, e) => s2 + e.parc, 0);
+              const totPipe = opps.reduce((s2, o) => s2 + o.machines, 0);
+              const restParc = totParc - rows.reduce((s2, r) => s2 + r.parc, 0);
+              const restPipe = totPipe - rows.reduce((s2, r) => s2 + r.pipe, 0);
+              if (restParc || restPipe) rows.push({ name: "Direction / autres", parc: restParc, pipe: restPipe });
+              return (
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="text-left text-[10.5px] uppercase text-[var(--muted)]">
+                      <th className="pb-2">AE</th>
+                      <th className="pb-2 text-right">Parc actuel</th>
+                      <th className="pb-2 text-right">Machines en pipe</th>
+                      <th className="pb-2 text-right">Portefeuille estimé</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.name} className="border-t" style={{ borderColor: "var(--line)" }}>
+                        <td className="py-1.5 font-semibold">{r.name}</td>
+                        <td className="py-1.5 text-right">{num(r.parc)}</td>
+                        <td className="py-1.5 text-right">+ {num(r.pipe)}</td>
+                        <td className="py-1.5 text-right font-semibold">{num(r.parc + r.pipe)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 font-semibold" style={{ borderColor: "var(--ink)" }}>
+                      <td className="py-1.5">Total direction</td>
+                      <td className="py-1.5 text-right">{num(totParc)}</td>
+                      <td className="py-1.5 text-right">+ {num(totPipe)}</td>
+                      <td className="py-1.5 text-right" style={{ color: "var(--teal)" }}>{num(totParc + totPipe)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              );
+            })()}
+          </div>
+
           {/* Vieillissantes */}
           {aging.length > 0 && (
             <div className="rounded-xl border bg-white p-4" style={{ borderColor: "var(--line)" }}>
               <h3 className="font-display mb-3 text-[13.5px] font-semibold">
                 ⏳ Opportunités vieillissantes{" "}
                 <span className="text-[11px] font-normal text-[var(--muted)]">
-                  âge supérieur à {benchmarks.alertRatio}× le cycle de vente historique de leur source — pondération décotée
+                  âge supérieur à {benchmarks.alertRatio}× le cycle de vente historique de leur source
                 </span>
               </h3>
               <div className="overflow-x-auto">
@@ -191,8 +235,6 @@ export function CockpitView({
                       <th className="pb-2 text-right">Âge</th>
                       <th className="pb-2 text-right">Cycle réf.</th>
                       <th className="pb-2 text-right">Montant</th>
-                      <th className="pb-2 text-right">Pondéré AE</th>
-                      <th className="pb-2 text-right">Pondéré ajusté</th>
                       <th className="pb-2">Tâche</th>
                     </tr>
                   </thead>
@@ -208,8 +250,6 @@ export function CockpitView({
                         </td>
                         <td className="py-1.5 text-right">{num(lc.cycle)} j</td>
                         <td className="py-1.5 text-right">{keur(o.amount)}</td>
-                        <td className="py-1.5 text-right">{keur((o.amount * o.prob) / 100)}</td>
-                        <td className="py-1.5 text-right font-semibold">{keur(lc.wAdj)}</td>
                         <td className="py-1.5">
                           {(() => {
                             const t = taskByOpp.get(o.id);

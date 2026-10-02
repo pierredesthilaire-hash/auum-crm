@@ -17,7 +17,7 @@ export default async function PipePage() {
       .order("amount", { ascending: false })
       .returns<OppRow[]>(),
     supabase.from("profiles").select("id, full_name").eq("role", "ae").order("full_name"),
-    supabase.from("entities").select("name").order("name"),
+    supabase.from("entities").select("name, parc, owner_id").order("name"),
   ]);
 
   // Onglets du Pipe : les AE, plus toute personne de la direction qui porte
@@ -40,6 +40,7 @@ export default async function PipePage() {
       initialOpps={opps ?? []}
       aes={pipeOwners}
       entityNames={(entities ?? []).map((e) => e.name)}
+      entityParc={(entities ?? []).map((e) => ({ owner_id: e.owner_id as string | null, parc: (e.parc as number | null) ?? 0 }))}
       currentUser={{ id: user!.id, fullName: user!.fullName, isDirection: user!.isDirection }}
     />
   );

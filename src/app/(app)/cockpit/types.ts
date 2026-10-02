@@ -1,3 +1,5 @@
+export type EntityParc = { owner_id: string | null; parc: number };
+
 export type AeOption = { id: string; full_name: string };
 
 export type CockpitOpp = {

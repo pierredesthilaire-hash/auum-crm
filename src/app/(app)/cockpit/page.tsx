@@ -15,7 +15,7 @@ export default async function CockpitPage() {
     redirect("/dashboard");
   }
 
-  const [{ data: opps }, { data: aes }, { data: benchSetting }, { data: audit }] = await Promise.all([
+  const [{ data: opps }, { data: aes }, { data: benchSetting }, { data: audit }, { data: entities }] = await Promise.all([
     supabase
       .from("opportunities")
       .select(
@@ -31,6 +31,7 @@ export default async function CockpitPage() {
       .order("at", { ascending: false })
       .limit(300)
       .returns<AuditRow[]>(),
+    supabase.from("entities").select("owner_id, parc").returns<{ owner_id: string | null; parc: number | null }[]>(),
   ]);
 
   const benchmarks = (benchSetting?.value as Benchmarks) ?? DEFAULT_BENCHMARKS;
@@ -47,6 +48,7 @@ export default async function CockpitPage() {
   return (
     <CockpitView
       agingTasks={agingTasks ?? []}
+      entityParc={(entities ?? []).map((e) => ({ owner_id: e.owner_id, parc: e.parc ?? 0 }))}
       opps={opps ?? []}
       aes={aes ?? []}
       benchmarks={benchmarks}

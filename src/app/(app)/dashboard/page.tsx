@@ -38,7 +38,7 @@ export default async function DashboardPage({
 
   await ensureAutoTasks(supabase, targetAe.id, targetAe.autotasks_ran_on, today);
 
-  const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }, { data: msToken }] = await Promise.all([
+  const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }, { data: msToken }, { data: ownEntities }] = await Promise.all([
     supabase
       .from("opportunities")
       .select("id, stage, amount, prob, machines, close_date")
@@ -64,6 +64,7 @@ export default async function DashboardPage({
       .eq("status", "open")
       .returns<TaskRow[]>(),
     supabase.from("ms_tokens").select("user_id").eq("user_id", user!.id).maybeSingle(),
+    supabase.from("entities").select("parc").eq("owner_id", targetAe.id),
   ]);
 
   return (
@@ -77,6 +78,7 @@ export default async function DashboardPage({
       meetings={meetings ?? []}
       tasks={tasks ?? []}
       today={today}
+      parc={(ownEntities ?? []).reduce((s, e) => s + (e.parc ?? 0), 0)}
       isOwn={targetAe.id === user!.id}
       outlookConnected={!!msToken}
       outlookStatus={outlookStatus ?? null}
