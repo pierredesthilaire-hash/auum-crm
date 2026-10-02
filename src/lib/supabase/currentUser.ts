@@ -13,15 +13,15 @@ export type CurrentUser = {
 // (getUser + profil) est réellement exécuté par navigation.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // Identité lue dans le jeton (vérifié par le proxy à chaque requête) : évite un aller-retour réseau vers Supabase Auth.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, full_name, role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
   if (!profile) return null;
 

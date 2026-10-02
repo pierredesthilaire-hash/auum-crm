@@ -27,9 +27,10 @@ export async function updateSession(request: NextRequest) {
 
   // Rafraîchit la session avant de rendre la page — indispensable pour que
   // les Server Components voient un utilisateur connecté à jour.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims vérifie le jeton localement (sans appel réseau à Supabase) quand le projet utilise des clés
+  // asymétriques ; sinon il retombe sur la vérification serveur. Beaucoup plus rapide que getUser().
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims ? { id: claimsData.claims.sub } : null;
 
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
