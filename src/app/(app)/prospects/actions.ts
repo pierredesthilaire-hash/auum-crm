@@ -222,7 +222,7 @@ export async function convertProspectToOpp(
       name: `${p.company} — opportunité issue de prospection`,
       entity_id: entityId,
       ae_id: p.ae_id ?? user!.id,
-      stage: "qualification",
+      stage: "decouverte",
       stage_orig: "Créée depuis la prospection",
       source: "Outbound/Prospection",
       machines: 1,

@@ -49,12 +49,12 @@ if (!filePath) {
 // Phase Dynamics -> étape du CRM (voir src/lib/stages.ts).
 const PHASE_TO_STAGE: Record<string, string> = {
   R1: "decouverte",
-  R2: "demo",
+  R2: "r2",
   "Démonstration": "demo",
   "Négociation": "nego",
   Validation: "signature",
 };
-const DEFAULT_STAGE = "qualification"; // phase vide ou inconnue
+const DEFAULT_STAGE = "decouverte"; // phase vide ou inconnue
 
 // Persona déduit de l'intitulé de poste (src/lib/personas.ts). À défaut : vide.
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -184,7 +184,7 @@ async function main() {
   console.log("Par AE    :", count(rows, (r) => r.ae));
   console.log("Par étape :", count(rows, (r) => r.stage));
   const unknownPhases = rows.filter((r) => r.phase && !PHASE_TO_STAGE[r.phase]);
-  if (unknownPhases.length) console.log("⚠ Phases non reconnues (-> qualification) :", count(unknownPhases, (r) => r.phase!));
+  if (unknownPhases.length) console.log("⚠ Phases non reconnues (-> R1) :", count(unknownPhases, (r) => r.phase!));
   console.log(`Sans phase : ${rows.filter((r) => !r.phase).length} | montant 0 : ${rows.filter((r) => !r.amount).length}`);
 
   // --- Contacts du fichier ---

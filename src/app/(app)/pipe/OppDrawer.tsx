@@ -358,7 +358,7 @@ function CreateOpp({
   const [error, setError] = useState<string | null>(null);
 
   const meddicApplies = meddicRequired(machines);
-  const meddicRequiredNow = meddicApplies && stage !== "qualification";
+  const meddicRequiredNow = meddicApplies && stage !== STAGES[0].id;
 
   const handleCreate = () => {
     if (!clientName.trim()) {

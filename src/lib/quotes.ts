@@ -5,6 +5,7 @@ export type QuoteLine = {
   label: string;
   qty: number;
   unit_price: number; // € HT
+  discount?: number; // remise en % sur la ligne (0-100)
   period: Period; // monthly = par mois pendant la durée ; once = facturé une fois
 };
 
@@ -26,11 +27,11 @@ export type Product = { code: string; label: string; period: Period; price: numb
 export const PRODUCTS: Product[] = [
   { code: "machine", label: "Location machine Auum-S", period: "monthly", price: 0 },
   { code: "maintenance", label: "Entretien et maintenance", period: "monthly", price: 0 },
-  { code: "livraison", label: "Livraison et installation", period: "once", price: 0 },
-  { code: "verre", label: "Verres en verre", period: "once", price: 0 },
-  { code: "plastique_noir", label: "Verres en plastique noir", period: "once", price: 0 },
-  { code: "plastique_beige", label: "Verres en plastique beige", period: "once", price: 0 },
-  { code: "plastique_transparent", label: "Verres en plastique transparent", period: "once", price: 0 },
+  { code: "livraison", label: "Livraison et installation", period: "once", price: 400 },
+  { code: "verre", label: "Verres en verre", period: "once", price: 6.5 },
+  { code: "plastique_noir", label: "Verres en plastique noir", period: "once", price: 4 },
+  { code: "plastique_beige", label: "Verres en plastique beige", period: "once", price: 4 },
+  { code: "plastique_transparent", label: "Verres en plastique transparent", period: "once", price: 4 },
   { code: "personnalisation", label: "Personnalisation des verres", period: "once", price: 0 },
 ];
 
@@ -48,9 +49,11 @@ export function lineFromProduct(p: Product): QuoteLine {
   return { code: p.code, label: p.label, qty: 1, unit_price: p.price, period: p.period };
 }
 
+export const lineTotal = (l: QuoteLine) => l.qty * l.unit_price * (1 - (l.discount ?? 0) / 100);
+
 export function computeTotals(lines: QuoteLine[], duration: number, vatRate: number) {
   const sum = (period: Period) =>
-    lines.filter((l) => l.period === period).reduce((s, l) => s + l.qty * l.unit_price, 0);
+    lines.filter((l) => l.period === period).reduce((s, l) => s + lineTotal(l), 0);
   const monthlyHT = sum("monthly");
   const onceHT = sum("once");
   const contractHT = monthlyHT * duration + onceHT;
@@ -68,7 +71,24 @@ export function computeTotals(lines: QuoteLine[], duration: number, vatRate: num
 export const eur = (n: number) =>
   n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2 });
 
+export const ISSUERS = {
+  auum: {
+    name: "AUUM",
+    legal: "Société par actions simplifiée au capital de 41 770 €",
+    address: "107 avenue de la République, 92320 Châtillon",
+    ids: "SIREN 845 300 128 · RCS Nanterre · TVA FR05845300128",
+  },
+  auum_finance: {
+    name: "AUUM FINANCE",
+    legal: "Société par actions simplifiée au capital de 10 000 €",
+    address: "70 rue de Villiers, 92300 Levallois-Perret",
+    ids: "SIREN 983 442 591 · RCS Nanterre · TVA FR35983442591",
+  },
+} as const;
+export type IssuerKey = keyof typeof ISSUERS;
+
 export type QuoteRow = {
+  issuer: IssuerKey;
   id: string;
   number: string;
   created_at: string;

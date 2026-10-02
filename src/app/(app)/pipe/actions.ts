@@ -389,7 +389,7 @@ export async function createOpportunity(
   const userId = await currentUserId();
 
   if (
-    input.stage !== "qualification" &&
+    input.stage !== STAGES[0].id &&
     meddicRequired(input.machines) &&
     !isMeddicComplete(input.meddic ?? {})
   ) {

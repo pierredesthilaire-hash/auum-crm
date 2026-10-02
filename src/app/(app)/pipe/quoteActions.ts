@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { DURATIONS, QUOTE_STATUSES, computeTotals, eur, type QuoteLine } from "@/lib/quotes";
+import { DURATIONS, ISSUERS, QUOTE_STATUSES, computeTotals, eur, type QuoteLine } from "@/lib/quotes";
 
 export type QuoteInput = {
+  issuer: string;
   duration_months: number;
   vat_rate: number;
   valid_until: string | null;
@@ -16,11 +17,13 @@ export type QuoteInput = {
 function validate(input: QuoteInput): string | null {
   if (!(DURATIONS as readonly number[]).includes(input.duration_months)) return "Durée invalide.";
   if (!(QUOTE_STATUSES as readonly string[]).includes(input.status)) return "Statut invalide.";
+  if (!(input.issuer in ISSUERS)) return "Entité émettrice invalide.";
   if (!(input.vat_rate >= 0 && input.vat_rate <= 100)) return "TVA invalide.";
   if (!input.lines.length) return "Ajoutez au moins une ligne au devis.";
   for (const l of input.lines) {
     if (!l.label.trim()) return "Chaque ligne doit avoir un libellé.";
     if (!(l.qty > 0) || !(l.unit_price >= 0)) return `Quantité ou prix invalide sur « ${l.label} ».`;
+    if (l.discount !== undefined && !(l.discount >= 0 && l.discount <= 100)) return `Remise invalide sur « ${l.label} ».`;
     if (l.period !== "monthly" && l.period !== "once") return "Périodicité invalide.";
   }
   return null;
@@ -44,6 +47,7 @@ export async function saveQuote(
   if (!opp) return { ok: false, error: "Opportunité introuvable" };
 
   const payload = {
+    issuer: input.issuer,
     duration_months: input.duration_months,
     vat_rate: input.vat_rate,
     valid_until: input.valid_until,

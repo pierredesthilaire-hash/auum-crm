@@ -80,8 +80,8 @@ create table public.opportunities (
   name          text not null,
   entity_id     uuid not null references public.entities(id),
   ae_id         uuid not null references public.profiles(id),
-  stage         text not null default 'qualification'
-                check (stage in ('qualification','decouverte','demo','nego','signature')),
+  stage         text not null default 'decouverte'
+                check (stage in ('decouverte','r2','demo','nego','signature')),
   stage_orig    text,                         -- phase Dynamics d'origine
   state         text not null default 'open' check (state in ('open','won','lost')),
   machines      integer not null default 1,
@@ -498,6 +498,7 @@ create table public.quotes (
                   default ('D-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('public.quote_seq')::text, 4, '0')),
   opp_id          uuid not null references public.opportunities(id) on delete cascade,
   ae_id           uuid not null references public.profiles(id),
+  issuer          text not null default 'auum' check (issuer in ('auum','auum_finance')),
   created_at      timestamptz default now(),
   duration_months int not null check (duration_months in (24, 36, 48)),
   vat_rate        numeric(5,2) not null default 20,
