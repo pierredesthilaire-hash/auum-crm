@@ -41,7 +41,7 @@ export default async function DashboardPage({
   const [{ data: openOpps }, { data: wonOpps }, { data: meetings }, { data: tasks }, { data: msToken }] = await Promise.all([
     supabase
       .from("opportunities")
-      .select("id, amount, prob, machines, close_date")
+      .select("id, stage, amount, prob, machines, close_date")
       .eq("ae_id", targetAe.id)
       .eq("state", "open")
       .returns<OppKpi[]>(),

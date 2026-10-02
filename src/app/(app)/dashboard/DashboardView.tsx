@@ -1,5 +1,7 @@
 "use client";
 
+import { ForecastPanel } from "@/components/ForecastPanel";
+
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { keur, fdate } from "@/lib/format";
@@ -114,6 +116,8 @@ export function DashboardView({
           .
         </div>
       </div>
+
+      <ForecastPanel opps={openOpps} today={today} />
 
       <div className="mb-4 grid grid-cols-6 gap-2.5">
         <Kpi v={openOpps.length} l="Oppos ouvertes" />

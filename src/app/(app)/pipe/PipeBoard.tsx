@@ -1,5 +1,7 @@
 "use client";
 
+import { ForecastPanel } from "@/components/ForecastPanel";
+
 import { useMemo, useState } from "react";
 import { STAGES, stageOf } from "@/lib/stages";
 import { keur, fdate, initials, aeColor } from "@/lib/format";
@@ -155,6 +157,8 @@ export function PipeBoard({
           ＋ Nouvelle opportunité
         </button>
       </div>
+
+      <ForecastPanel opps={filtered} today={today} />
 
       <div className="grid grid-cols-5 gap-3">
         {STAGES.map((st) => {

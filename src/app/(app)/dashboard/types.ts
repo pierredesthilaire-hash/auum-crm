@@ -2,6 +2,7 @@ export type AeOption = { id: string; full_name: string };
 
 export type OppKpi = {
   id: string;
+  stage: string;
   amount: number;
   prob: number;
   machines: number;
