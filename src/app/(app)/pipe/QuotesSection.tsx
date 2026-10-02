@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import {
   DURATIONS,
+  ISSUERS,
+  lineTotal,
+  type IssuerKey,
   INCLUDED_GLASSES,
   PRODUCTS,
   QUOTE_STATUSES,
@@ -62,7 +65,10 @@ export function QuotesSection({ opp }: { opp: OppRow }) {
                     Modifier
                   </button>
                   <a href={`/devis/${q.id}`} target="_blank" rel="noreferrer" className="underline">
-                    Aperçu / PDF
+                    Aperçu
+                  </a>
+                  <a href={`/devis/${q.id}/pdf`} className="underline">
+                    Télécharger le PDF
                   </a>
                   <button type="button" onClick={() => remove(q)} disabled={pending} className="ml-auto text-[var(--red)] underline">
                     Supprimer
@@ -82,6 +88,7 @@ function QuoteEditor({ opp, quote, onClose }: { opp: OppRow; quote: QuoteRow | n
   const [duration, setDuration] = useState<number>(quote?.duration_months ?? 36);
   const [vat, setVat] = useState(quote?.vat_rate ?? 20);
   const [validUntil, setValidUntil] = useState(quote?.valid_until ?? addDaysISO(todayISO(), 30));
+  const [issuer, setIssuer] = useState<IssuerKey>(quote?.issuer ?? "auum");
   const [status, setStatus] = useState(quote?.status ?? "brouillon");
   const [notes, setNotes] = useState(quote?.notes ?? "");
   const [lines, setLines] = useState<QuoteLine[]>(
@@ -108,6 +115,7 @@ function QuoteEditor({ opp, quote, onClose }: { opp: OppRow; quote: QuoteRow | n
     setError(null);
     startTransition(async () => {
       const r = await saveQuote(opp.id, quote?.id ?? null, {
+        issuer,
         duration_months: duration,
         vat_rate: vat,
         valid_until: validUntil || null,
@@ -134,6 +142,16 @@ function QuoteEditor({ opp, quote, onClose }: { opp: OppRow; quote: QuoteRow | n
         </div>
 
         <div className="space-y-3 overflow-y-auto p-4 text-[12.5px]">
+          <label className="flex flex-col gap-1 text-xs font-semibold">
+            Entité émettrice du devis
+            <select className="input" value={issuer} onChange={(e) => setIssuer(e.target.value as IssuerKey)}>
+              {(Object.keys(ISSUERS) as IssuerKey[]).map((k) => (
+                <option key={k} value={k}>
+                  {ISSUERS[k].name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="grid grid-cols-4 gap-2">
             <label className="flex flex-col gap-1 text-xs font-semibold">
               Durée d&apos;engagement
@@ -172,6 +190,7 @@ function QuoteEditor({ opp, quote, onClose }: { opp: OppRow; quote: QuoteRow | n
                 <th className="pb-1">Produit / service</th>
                 <th className="w-16 pb-1">Qté</th>
                 <th className="w-24 pb-1">Prix HT</th>
+                <th className="w-16 pb-1">Remise %</th>
                 <th className="w-28 pb-1">Facturation</th>
                 <th className="w-24 pb-1 text-right">Total HT</th>
                 <th className="w-6" />
@@ -191,12 +210,15 @@ function QuoteEditor({ opp, quote, onClose }: { opp: OppRow; quote: QuoteRow | n
                     <input className="input" type="number" min={0} step="0.01" value={l.unit_price} onChange={(e) => patch(i, { unit_price: Number(e.target.value) })} />
                   </td>
                   <td className="py-1 pr-2">
+                    <input className="input" type="number" min={0} max={100} step="0.5" value={l.discount ?? 0} onChange={(e) => patch(i, { discount: Number(e.target.value) })} />
+                  </td>
+                  <td className="py-1 pr-2">
                     <select className="input" value={l.period} onChange={(e) => patch(i, { period: e.target.value as QuoteLine["period"] })}>
                       <option value="monthly">Par mois</option>
                       <option value="once">Une fois</option>
                     </select>
                   </td>
-                  <td className="py-1 pr-2 pt-2 text-right font-semibold">{eur(l.qty * l.unit_price)}</td>
+                  <td className="py-1 pr-2 pt-2 text-right font-semibold">{eur(lineTotal(l))}</td>
                   <td className="py-1 pt-1.5">
                     <button type="button" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))} title="Retirer" className="text-[var(--red)]">
                       ✕

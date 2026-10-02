@@ -1,43 +1,47 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { INCLUDED_GLASSES, computeTotals, eur, type QuoteRow } from "@/lib/quotes";
+import { INCLUDED_GLASSES, ISSUERS, computeTotals, eur, lineTotal } from "@/lib/quotes";
+import { loadQuote } from "@/lib/quoteData";
 import { fdate } from "@/lib/format";
 import { PrintButton } from "./PrintButton";
-
-type QuoteFull = QuoteRow & {
-  opportunities: {
-    name: string;
-    entities: { name: string } | null;
-    profiles: { full_name: string } | null;
-    opportunity_contacts: { contacts: { full_name: string; role: string | null; email: string | null } | null }[];
-  } | null;
-};
 
 export default async function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: q } = await supabase
-    .from("quotes")
-    .select(
-      "id, number, created_at, duration_months, vat_rate, valid_until, status, notes, lines, opportunities(name, entities(name), profiles(full_name), opportunity_contacts(contacts(full_name, role, email)))",
-    )
-    .eq("id", id)
-    .maybeSingle<QuoteFull>();
+  const q = await loadQuote(supabase, id);
   if (!q) notFound();
 
   const t = computeTotals(q.lines, q.duration_months, q.vat_rate);
   const contact = q.opportunities?.opportunity_contacts?.map((x) => x.contacts).find(Boolean) ?? null;
+  const issuer = ISSUERS[q.issuer] ?? ISSUERS.auum;
+  const hasDiscount = q.lines.some((l) => (l.discount ?? 0) > 0);
   const hasRent = q.lines.some((l) => l.code === "machine");
 
   return (
     <div className="min-h-screen bg-neutral-100 py-8 print:bg-white print:py-0">
-      <div className="mx-auto mb-4 flex max-w-[820px] justify-end print:hidden">
+      <div className="mx-auto mb-4 flex max-w-[820px] justify-end gap-2 print:hidden">
+        <a
+          href={`/devis/${q.id}/pdf`}
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+          style={{ background: "#149E7E" }}
+        >
+          ⬇ Télécharger le PDF
+        </a>
         <PrintButton />
       </div>
       <div className="mx-auto max-w-[820px] bg-white p-10 text-[13px] text-neutral-900 shadow print:shadow-none">
         <div className="flex items-start justify-between">
-          <div className="text-[34px] font-bold leading-none tracking-tight" style={{ color: "#0E3F30" }}>
-            auum<span style={{ color: "#149E7E" }}>.</span>
+          <div>
+            <div className="text-[34px] font-bold leading-none tracking-tight" style={{ color: "#0E3F30" }}>
+              auum<span style={{ color: "#149E7E" }}>.</span>
+            </div>
+            <div className="mt-2 text-[11.5px] leading-snug text-neutral-600">
+              <b>{issuer.name}</b> — {issuer.legal}
+              <br />
+              {issuer.address}
+              <br />
+              {issuer.ids}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-lg font-semibold">Devis {q.number}</div>
@@ -74,6 +78,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
               <th className="py-2">Désignation</th>
               <th className="w-14 py-2 text-right">Qté</th>
               <th className="w-28 py-2 text-right">Prix unit. HT</th>
+              {hasDiscount && <th className="w-16 py-2 text-right">Remise</th>}
               <th className="w-24 py-2">Facturation</th>
               <th className="w-28 py-2 text-right">Total HT</th>
             </tr>
@@ -84,8 +89,9 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
                 <td className="py-2">{l.label}</td>
                 <td className="py-2 text-right">{l.qty}</td>
                 <td className="py-2 text-right">{eur(l.unit_price)}</td>
+                {hasDiscount && <td className="py-2 text-right">{(l.discount ?? 0) > 0 ? `${l.discount} %` : ""}</td>}
                 <td className="py-2">{l.period === "monthly" ? "Par mois" : "Une fois"}</td>
-                <td className="py-2 text-right">{eur(l.qty * l.unit_price)}</td>
+                <td className="py-2 text-right">{eur(lineTotal(l))}</td>
               </tr>
             ))}
           </tbody>
