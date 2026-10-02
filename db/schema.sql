@@ -513,3 +513,14 @@ create policy "quotes select" on public.quotes for select using ( ae_id = auth.u
 create policy "quotes insert" on public.quotes for insert with check ( ae_id = auth.uid() or public.is_direction() );
 create policy "quotes update" on public.quotes for update using ( ae_id = auth.uid() or public.is_direction() );
 create policy "quotes delete" on public.quotes for delete using ( ae_id = auth.uid() or public.is_direction() );
+
+-- ---------- Cache des actualités (voir db/migrations/2026-10-02-news-cache.sql) ----------
+create table public.news_cache (
+  key        text primary key,
+  items      jsonb not null default '[]',
+  fetched_at timestamptz not null default now()
+);
+alter table public.news_cache enable row level security;
+create policy "news_cache select" on public.news_cache for select using ( auth.uid() is not null );
+create policy "news_cache insert" on public.news_cache for insert with check ( auth.uid() is not null );
+create policy "news_cache update" on public.news_cache for update using ( auth.uid() is not null );

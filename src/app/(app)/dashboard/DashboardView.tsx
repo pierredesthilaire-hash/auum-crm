@@ -7,6 +7,7 @@ import Link from "next/link";
 import { keur, fdate } from "@/lib/format";
 import { markTaskDone, snoozeTask, syncOutlook } from "./actions";
 import { NewTaskDrawer } from "./NewTaskDrawer";
+import { NewsPanel } from "./NewsPanel";
 import type { AeOption, MeetingRow, OppKpi, TaskRow } from "./types";
 
 const TYPE_ICON: Record<string, string> = {
@@ -211,6 +212,8 @@ export function DashboardView({
           )}
         </div>
       </div>
+
+      <NewsPanel aeId={targetAe.id} canCreateTasks />
 
       {showNewTask && <NewTaskDrawer ownerId={targetAe.id} onClose={() => setShowNewTask(false)} />}
     </div>
