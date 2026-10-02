@@ -5,7 +5,18 @@ import { createTask } from "./actions";
 
 const TTYPES = ["Rappel client", "Envoyer le devis", "Relance", "Préparer démo", "Administratif", "Autre"];
 
-export function NewTaskDrawer({ ownerId, onClose }: { ownerId: string; onClose: () => void }) {
+export function NewTaskDrawer({
+  ownerId,
+  aes,
+  onClose,
+  onCreated,
+}: {
+  ownerId: string;
+  aes?: { id: string; full_name: string }[]; // si fourni : choix de l'AE destinataire (direction)
+  onClose: () => void;
+  onCreated?: (aeName: string | null) => void;
+}) {
+  const [assignee, setAssignee] = useState(ownerId);
   const [title, setTitle] = useState("");
   const [type, setType] = useState(TTYPES[0]);
   const [due, setDue] = useState("");
@@ -19,12 +30,13 @@ export function NewTaskDrawer({ ownerId, onClose }: { ownerId: string; onClose: 
       return;
     }
     setPending(true);
-    const r = await createTask({ title: title.trim(), type, due: due || null, note, ownerId });
+    const r = await createTask({ title: title.trim(), type, due: due || null, note, ownerId: assignee });
     setPending(false);
     if (!r.ok) {
       setError(r.error ?? "Échec de création");
       return;
     }
+    onCreated?.(aes?.find((a) => a.id === assignee)?.full_name ?? null);
     onClose();
   };
 
@@ -43,6 +55,18 @@ export function NewTaskDrawer({ ownerId, onClose }: { ownerId: string; onClose: 
         </div>
 
         <div className="flex-1 space-y-3 p-5">
+          {aes && (
+            <label className="flex flex-col gap-1 text-xs font-semibold">
+              Assigner à
+              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="input">
+                {aes.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.full_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="flex flex-col gap-1 text-xs font-semibold">
             Titre
             <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="ex. Rappeler le client" />

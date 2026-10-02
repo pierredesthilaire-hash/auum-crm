@@ -2,22 +2,14 @@
 
 import { ForecastPanel } from "@/components/ForecastPanel";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { keur, fdate } from "@/lib/format";
-import { markTaskDone, snoozeTask, syncOutlook } from "./actions";
+import { syncOutlook } from "./actions";
+import { TaskList } from "./TaskList";
 import { NewTaskDrawer } from "./NewTaskDrawer";
 import { NewsPanel } from "./NewsPanel";
 import type { AeOption, MeetingRow, OppKpi, TaskRow } from "./types";
-
-const TYPE_ICON: Record<string, string> = {
-  "Rappel client": "📞",
-  "Envoyer le devis": "📄",
-  Relance: "🔔",
-  "Préparer démo": "🛠",
-  Administratif: "📋",
-  Autre: "•",
-};
 
 export function DashboardView({
   targetAe,
@@ -73,12 +65,10 @@ export function DashboardView({
     .sort((a, b) => (a.close_date! < b.close_date! ? -1 : 1))[0];
   const nextCloseLate = !!nextClose && nextClose.close_date! < today;
 
-  const sortedTasks = useMemo(
-    () => [...tasks].sort((a, b) => (a.due ?? "9999-99-99").localeCompare(b.due ?? "9999-99-99")),
-    [tasks],
-  );
-  const overdueCount = sortedTasks.filter((t) => t.due && t.due < today).length;
-  const todayCount = sortedTasks.filter((t) => t.due === today).length;
+  const manualTasks = tasks.filter((t) => !t.auto);
+  const autoCount = tasks.length - manualTasks.length;
+  const overdueCount = manualTasks.filter((t) => t.due && t.due < today).length;
+  const todayCount = manualTasks.filter((t) => t.due === today).length;
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
@@ -192,24 +182,14 @@ export function DashboardView({
                   {overdueCount} en retard ·{" "}
                 </span>
               )}
-              {todayCount} aujourd&apos;hui · {sortedTasks.length} au total
+              {todayCount} aujourd&apos;hui · {manualTasks.length} à faire{autoCount > 0 ? ` · ${autoCount} relances auto` : ""}
             </span>
             <button onClick={() => setShowNewTask(true)} className="btn-primary ml-auto px-3 py-1.5 text-[11.5px]">
               ＋ Tâche
             </button>
           </div>
 
-          {!sortedTasks.length ? (
-            <div className="text-[12px] text-[var(--muted)]">
-              Aucune tâche en cours. Ajoutez-en une avec ＋ Tâche, ou laissez les règles de pipe vous en proposer.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedTasks.map((t) => (
-                <TaskCard key={t.id} task={t} today={today} />
-              ))}
-            </div>
-          )}
+          <TaskList tasks={tasks} today={today} />
         </div>
       </div>
 
@@ -217,61 +197,6 @@ export function DashboardView({
 
       {showNewTask && <NewTaskDrawer ownerId={targetAe.id} onClose={() => setShowNewTask(false)} />}
     </div>
-  );
-}
-
-function TaskCard({ task: t, today }: { task: TaskRow; today: string }) {
-  const over = !!t.due && t.due < today;
-  const isToday = t.due === today;
-  const icon = t.auto ? "⚙" : TYPE_ICON[t.type ?? "Autre"] ?? "•";
-  const client = t.opportunities?.entities?.name ?? t.opportunities?.name;
-
-  return (
-    <div
-      className="rounded-lg border p-2.5"
-      style={{ borderColor: over ? "var(--red)" : "var(--line)", background: over ? "#FBF1EF" : "#fff" }}
-    >
-      <div className="flex gap-2.5">
-        <span className="text-[15px]">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-semibold">{t.title}</div>
-          {t.note && <div className="text-[11px] text-[var(--muted)]">{t.note}</div>}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span
-              className="text-[10.5px] font-semibold"
-              style={{ color: over ? "var(--red)" : isToday ? "var(--amber)" : "var(--muted)" }}
-            >
-              {t.due ? (over ? "⏰ " : isToday ? "📅 " : "") + fdate(t.due) : "sans échéance"}
-            </span>
-            {t.auto ? (
-              <Tag>auto</Tag>
-            ) : (
-              t.type && <Tag>{t.type}</Tag>
-            )}
-            {client && <Tag>{client} ↗</Tag>}
-          </div>
-        </div>
-      </div>
-      <div className="mt-2 flex gap-1.5">
-        <button onClick={() => markTaskDone(t.id)} className="btn px-2.5 py-1 text-[11px]">
-          ✓ Fait
-        </button>
-        <button onClick={() => snoozeTask(t.id, 1)} className="btn px-2.5 py-1 text-[11px]">
-          +1j
-        </button>
-        <button onClick={() => snoozeTask(t.id, 7)} className="btn px-2.5 py-1 text-[11px]">
-          +7j
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "#F0F3EF", color: "var(--muted)" }}>
-      {children}
-    </span>
   );
 }
 

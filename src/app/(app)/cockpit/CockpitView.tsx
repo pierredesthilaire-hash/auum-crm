@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { keur, num, aeColor } from "@/lib/format";
 import { STAGES } from "@/lib/stages";
 import { computeLifecycle, type Benchmarks } from "@/lib/lifecycle";
+import { NewTaskDrawer } from "../dashboard/NewTaskDrawer";
 import { JournalView } from "./JournalView";
 import type { AeOption, AgingTask, AuditRow, CockpitOpp, EntityParc } from "./types";
 
@@ -26,6 +27,8 @@ export function CockpitView({
 }) {
   const [tab, setTab] = useState<"vue" | "journal">("vue");
   const [aeFilter, setAeFilter] = useState("ALL");
+  const [showTask, setShowTask] = useState(false);
+  const [taskMsg, setTaskMsg] = useState<string | null>(null);
 
   const aeNames = aes.map((a) => a.full_name);
 
@@ -63,7 +66,21 @@ export function CockpitView({
             {k === "vue" ? "Vue d'ensemble" : "Journal & évolutions du pipe"}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          {taskMsg && <span className="text-[11.5px] font-semibold" style={{ color: "var(--teal)" }}>{taskMsg}</span>}
+          <button onClick={() => setShowTask(true)} className="btn-primary px-3 py-1.5 text-xs">
+            ＋ Tâche pour un AE
+          </button>
+        </div>
       </div>
+      {showTask && aes.length > 0 && (
+        <NewTaskDrawer
+          ownerId={aes.find((a) => a.full_name === aeFilter)?.id ?? aes[0].id}
+          aes={aes}
+          onClose={() => setShowTask(false)}
+          onCreated={(name) => setTaskMsg(`Tâche créée${name ? ` pour ${name.split(" ")[0]}` : ""}`)}
+        />
+      )}
 
       {tab === "journal" ? (
         <JournalView audit={audit} users={aes} />

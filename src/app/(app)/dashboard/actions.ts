@@ -7,11 +7,43 @@ import { refreshAccess } from "@/lib/outlook";
 
 export async function markTaskDone(taskId: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase
+  let { data, error } = await supabase
     .from("tasks")
     .update({ status: "done", done_on: todayISO() })
-    .eq("id", taskId);
+    .eq("id", taskId)
+    .select("id");
+  // Base ancienne sans colonne done_on : on réessaie sans elle.
+  if (error && /done_on/.test(error.message)) {
+    ({ data, error } = await supabase.from("tasks").update({ status: "done" }).eq("id", taskId).select("id"));
+  }
   if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Tâche introuvable ou modification non autorisée." };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function dismissTask(taskId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("tasks").update({ status: "dismissed" }).eq("id", taskId).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Tâche introuvable ou modification non autorisée." };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function updateTask(
+  taskId: string,
+  input: { title: string; type: string; due: string | null; note: string },
+): Promise<{ ok: boolean; error?: string }> {
+  if (!input.title.trim()) return { ok: false, error: "Indiquez un titre." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ title: input.title.trim(), type: input.type, due: input.due || null, note: input.note.trim() || null })
+    .eq("id", taskId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Tâche introuvable ou modification non autorisée." };
   revalidatePath("/dashboard");
   return { ok: true };
 }
