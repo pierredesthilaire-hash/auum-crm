@@ -4,9 +4,19 @@ import { useState, useTransition } from "react";
 import { STAGES, PROB_OPTIONS, SOURCES, stageOf } from "@/lib/stages";
 import { keur } from "@/lib/format";
 import { MEDDIC_FIELDS, isMeddicComplete, meddicRequired, type MeddicKey } from "@/lib/meddic";
-import { changeStage, saveOpportunity, markWon, markLost, createOpportunity } from "./actions";
+import { PERSONAS } from "@/lib/personas";
+import {
+  changeStage,
+  saveOpportunity,
+  markWon,
+  markLost,
+  createOpportunity,
+  addOppContact,
+  removeOppContact,
+  type NewContactInput,
+} from "./actions";
 import type { ConfirmRequest } from "./ConfirmDialog";
-import type { AeOption, CurrentUser, OppRow } from "./types";
+import type { AeOption, CurrentUser, OppContact, OppRow } from "./types";
 
 type ConfirmFn = (
   req: Omit<ConfirmRequest, "onConfirm" | "onCancel">,
@@ -288,6 +298,8 @@ function EditOpp({
           <b className="font-display">{((machines * prob) / 100).toFixed(1)}</b> machines pondérées
         </div>
 
+        <OppContacts opp={opp} />
+
         <MeddicSection meddic={meddic} setMeddic={setMeddic} required={meddicApplies} />
 
         <div className="text-[11.5px] leading-relaxed text-[var(--muted)]">
@@ -338,6 +350,7 @@ function CreateOpp({
   const [meddic, setMeddic] = useState<Record<MeddicKey, string>>(() =>
     Object.fromEntries(MEDDIC_FIELDS.map((f) => [f.key, ""])) as Record<MeddicKey, string>,
   );
+  const [contacts, setContacts] = useState<NewContactInput[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -347,6 +360,12 @@ function CreateOpp({
   const handleCreate = () => {
     if (!clientName.trim()) {
       setError("Indiquez le compte client");
+      return;
+    }
+    // Un bloc contact entièrement vide est ignoré ; un bloc rempli sans nom est refusé.
+    const filledContacts = contacts.filter((c) => Object.values(c).some((v) => v.trim()));
+    if (filledContacts.some((c) => !c.full_name.trim())) {
+      setError("Chaque contact doit avoir un nom complet (prénom et nom).");
       return;
     }
     if (meddicRequiredNow && !isMeddicComplete(meddic)) {
@@ -367,11 +386,13 @@ function CreateOpp({
         closeDate: closeDate || null,
         source,
         meddic,
+        contacts: filledContacts,
       });
       if (!r.ok) {
         setError(r.error ?? "Échec de création");
         return;
       }
+      if (r.warning) window.alert(r.warning);
       onClose();
     });
   };
@@ -480,6 +501,46 @@ function CreateOpp({
           </select>
         </Field>
 
+        <div>
+          <div className="mb-1.5 flex items-center">
+            <div className="text-xs font-semibold uppercase tracking-wide">Contacts ({contacts.length})</div>
+            <button
+              type="button"
+              onClick={() => setContacts((l) => [...l, { ...EMPTY_CONTACT }])}
+              className="btn ml-auto"
+            >
+              ＋ Ajouter un contact
+            </button>
+          </div>
+          {!contacts.length && (
+            <div className="text-[11.5px] text-[var(--muted)]">
+              Optionnel. Un ou plusieurs contacts peuvent être rattachés à l&apos;opportunité.
+            </div>
+          )}
+          <div className="space-y-2">
+            {contacts.map((c, i) => (
+              <div key={i} className="rounded-lg border p-3" style={{ borderColor: "var(--line)" }}>
+                <div className="mb-1.5 flex items-center text-[11px] font-bold uppercase text-[var(--muted)]">
+                  Contact {i + 1}
+                  <button
+                    type="button"
+                    onClick={() => setContacts((l) => l.filter((_, j) => j !== i))}
+                    className="ml-auto text-sm"
+                    title="Retirer ce contact"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ContactFields
+                  value={c}
+                  onChange={(v) => setContacts((l) => l.map((x, j) => (j === i ? v : x)))}
+                  companyPlaceholder={clientName.trim() || "Par défaut : le compte client"}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {meddicApplies && (
           <MeddicSection meddic={meddic} setMeddic={setMeddic} required={meddicRequiredNow} />
         )}
@@ -493,6 +554,164 @@ function CreateOpp({
         </button>
       </div>
     </>
+  );
+}
+
+const EMPTY_CONTACT: NewContactInput = {
+  full_name: "",
+  role: "",
+  persona: "",
+  email: "",
+  phone: "",
+  company: "",
+};
+
+function ContactFields({
+  value,
+  onChange,
+  companyPlaceholder,
+}: {
+  value: NewContactInput;
+  onChange: (v: NewContactInput) => void;
+  companyPlaceholder: string;
+}) {
+  const set = (k: keyof NewContactInput, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="col-span-2">
+        <Field label="Nom complet (prénom et nom)">
+          <input value={value.full_name} onChange={(e) => set("full_name", e.target.value)} className="input" />
+        </Field>
+      </div>
+      <Field label="Intitulé de poste">
+        <input value={value.role} onChange={(e) => set("role", e.target.value)} className="input" />
+      </Field>
+      <Field label="Persona">
+        <select value={value.persona} onChange={(e) => set("persona", e.target.value)} className="input">
+          <option value="">—</option>
+          {PERSONAS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Email">
+        <input type="email" value={value.email} onChange={(e) => set("email", e.target.value)} className="input" />
+      </Field>
+      <Field label="Téléphone pro">
+        <input value={value.phone} onChange={(e) => set("phone", e.target.value)} className="input" />
+      </Field>
+      <div className="col-span-2">
+        <Field label="Société associée">
+          <input
+            value={value.company}
+            onChange={(e) => set("company", e.target.value)}
+            placeholder={companyPlaceholder}
+            className="input"
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function OppContacts({ opp }: { opp: OppRow }) {
+  const contacts = (opp.opportunity_contacts ?? [])
+    .map((x) => x.contacts)
+    .filter((c): c is OppContact => !!c);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState<NewContactInput>({ ...EMPTY_CONTACT });
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAdd = () => {
+    if (!form.full_name.trim()) {
+      setError("Indiquez le nom complet du contact.");
+      return;
+    }
+    startTransition(async () => {
+      const r = await addOppContact(opp.id, form);
+      if (!r.ok) {
+        setError(r.error ?? "Échec de l'ajout");
+        return;
+      }
+      setForm({ ...EMPTY_CONTACT });
+      setAdding(false);
+      setError(null);
+    });
+  };
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center">
+        <div className="text-xs font-semibold uppercase tracking-wide">Contacts ({contacts.length})</div>
+        {!adding && (
+          <button type="button" onClick={() => setAdding(true)} className="btn ml-auto">
+            ＋ Ajouter un contact
+          </button>
+        )}
+      </div>
+      {!contacts.length && !adding && (
+        <div className="text-[11.5px] text-[var(--muted)]">Aucun contact rattaché à cette opportunité.</div>
+      )}
+      <div className="space-y-1.5">
+        {contacts.map((c) => (
+          <div key={c.id} className="flex items-start gap-2 rounded-lg border p-2" style={{ borderColor: "var(--line)" }}>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12.5px] font-semibold">
+                {c.full_name}
+                {c.persona && (
+                  <span
+                    className="ml-2 rounded-full px-2 py-0.5 text-[9.5px] font-bold text-white"
+                    style={{ background: "var(--pine)" }}
+                  >
+                    {c.persona}
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-[var(--muted)]">
+                {[c.role, c.company].filter(Boolean).join(" · ")}
+              </div>
+              <div className="break-all text-[11px] text-[var(--muted)]">
+                {[c.email, c.phone].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => startTransition(async () => void (await removeOppContact(opp.id, c.id)))}
+              className="btn shrink-0"
+              style={{ color: "var(--red)" }}
+              title="Détacher de cette opportunité (le contact reste dans la fiche client)"
+            >
+              Retirer
+            </button>
+          </div>
+        ))}
+      </div>
+      {adding && (
+        <div className="mt-2 rounded-lg border p-3" style={{ borderColor: "var(--line)" }}>
+          <ContactFields value={form} onChange={setForm} companyPlaceholder={opp.entities?.name ?? ""} />
+          {error && <div className="mt-2 text-[12px] font-semibold text-[var(--red)]">{error}</div>}
+          <div className="mt-2 flex gap-2">
+            <button type="button" disabled={pending} onClick={handleAdd} className="btn-primary flex-1">
+              Ajouter
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(false);
+                setError(null);
+              }}
+              className="btn"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/currentUser";
 import { ClientsGrid } from "./ClientsGrid";
-import type { AeOption, ContactRow, EntityOpp, EntityRow, GroupOption, NewsRow } from "./types";
+import type { AeOption, ContactRow, EntityOpp, EntityRow, GroupOption } from "./types";
 import type { SegConfig } from "@/lib/segments";
 
 export default async function ClientsPage() {
@@ -14,7 +14,6 @@ export default async function ClientsPage() {
     { data: groups },
     { data: aes },
     { data: segSetting },
-    { data: news },
     { data: contacts },
   ] = await Promise.all([
     getCurrentUser(),
@@ -33,8 +32,7 @@ export default async function ClientsPage() {
     supabase.from("groups").select("id, name").order("name").returns<GroupOption[]>(),
     supabase.from("profiles").select("id, full_name").eq("role", "ae").order("full_name").returns<AeOption[]>(),
     supabase.from("settings").select("value").eq("key", "seg_config").single(),
-    supabase.from("news").select("entity_id, date, title, signal, suggestion").returns<NewsRow[]>(),
-    supabase.from("contacts").select("id, entity_id, full_name, role, email, phone").returns<ContactRow[]>(),
+    supabase.from("contacts").select("id, entity_id, full_name, role, persona, email, phone, company").returns<ContactRow[]>(),
   ]);
 
   const segConfig = (segSetting?.value as SegConfig) ?? { smb: 500, grand: 1000 };
@@ -45,7 +43,6 @@ export default async function ClientsPage() {
       opps={opps ?? []}
       groups={groups ?? []}
       aes={aes ?? []}
-      news={news ?? []}
       contacts={contacts ?? []}
       segConfig={segConfig}
       currentUser={{ id: user!.id, fullName: user!.fullName, isDirection: user!.isDirection }}

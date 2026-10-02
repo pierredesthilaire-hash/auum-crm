@@ -1,17 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { keur, initials, aeColor } from "@/lib/format";
-import { SEG_LABEL, SEG_COLOR, segmentOf, type SegConfig } from "@/lib/segments";
+import { SEG_LABEL, segmentOf, type SegConfig } from "@/lib/segments";
 import { ClientDrawer } from "./ClientDrawer";
-import type { AeOption, ContactRow, CurrentUser, EntityOpp, EntityRow, GroupOption, NewsRow } from "./types";
+import type { AeOption, ContactRow, CurrentUser, EntityOpp, EntityRow, GroupOption } from "./types";
+
+type SortKey = "name" | "parc";
+type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 export function ClientsGrid({
   entities,
   opps,
   groups,
   aes,
-  news,
   contacts,
   segConfig,
   currentUser,
@@ -20,7 +21,6 @@ export function ClientsGrid({
   opps: EntityOpp[];
   groups: GroupOption[];
   aes: AeOption[];
-  news: NewsRow[];
   contacts: ContactRow[];
   segConfig: SegConfig;
   currentUser: CurrentUser;
@@ -28,17 +28,15 @@ export function ClientsGrid({
   const [segFilter, setSegFilter] = useState<"ALL" | "smb" | "grand" | "cle">("ALL");
   const [aeFilter, setAeFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<Sort>({ key: "parc", dir: "desc" });
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
 
-  const statsByEntity = useMemo(() => {
-    const map = new Map<string, { n: number; amount: number; machines: number; oo: EntityOpp[] }>();
+  const oppsByEntity = useMemo(() => {
+    const map = new Map<string, EntityOpp[]>();
     for (const o of opps) {
-      const s = map.get(o.entity_id) ?? { n: 0, amount: 0, machines: 0, oo: [] };
-      s.n += 1;
-      s.amount += o.amount;
-      s.machines += o.machines;
-      s.oo.push(o);
-      map.set(o.entity_id, s);
+      const arr = map.get(o.entity_id) ?? [];
+      arr.push(o);
+      map.set(o.entity_id, arr);
     }
     return map;
   }, [opps]);
@@ -53,17 +51,6 @@ export function ClientsGrid({
     return map;
   }, [contacts]);
 
-  const newsByEntity = useMemo(() => {
-    const map = new Map<string, NewsRow[]>();
-    for (const n of news) {
-      const arr = map.get(n.entity_id) ?? [];
-      arr.push(n);
-      map.set(n.entity_id, arr);
-    }
-    for (const arr of map.values()) arr.sort((a, b) => b.date.localeCompare(a.date));
-    return map;
-  }, [news]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = entities.filter((e) => {
@@ -73,18 +60,29 @@ export function ClientsGrid({
       if (q && !e.name.toLowerCase().includes(q)) return false;
       return true;
     });
+    const sign = sort.dir === "asc" ? 1 : -1;
     list.sort((a, b) => {
-      const na = (newsByEntity.get(a.id)?.length ?? 0) > 0 ? 1 : 0;
-      const nb = (newsByEntity.get(b.id)?.length ?? 0) > 0 ? 1 : 0;
-      if (na !== nb) return nb - na;
-      const sa = statsByEntity.get(a.id)?.amount ?? 0;
-      const sb = statsByEntity.get(b.id)?.amount ?? 0;
-      return sb - sa;
+      if (sort.key === "parc") {
+        const d = (a.parc || 0) - (b.parc || 0);
+        if (d !== 0) return sign * d;
+      }
+      const byName = a.name.localeCompare(b.name, "fr");
+      return sort.key === "name" ? sign * byName : byName;
     });
     return list;
-  }, [entities, aeFilter, segFilter, search, segConfig, newsByEntity, statsByEntity]);
+  }, [entities, aeFilter, segFilter, search, segConfig, sort]);
+
+  const totalMachines = useMemo(() => filtered.reduce((s, e) => s + (e.parc || 0), 0), [filtered]);
 
   const openEntity = openEntityId ? entities.find((e) => e.id === openEntityId) ?? null : null;
+
+  const toggleSort = (key: SortKey) =>
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "parc" ? "desc" : "asc" },
+    );
+  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "");
 
   return (
     <div>
@@ -134,92 +132,59 @@ export function ClientsGrid({
       </div>
 
       <div className="mb-3 text-[11.5px] text-[var(--muted)]">
-        {filtered.length} client(s) — les comptes avec une actualité récente remontent en premier.
+        {filtered.length} client(s) · {totalMachines.toLocaleString("fr-FR")} machines au total
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {filtered.slice(0, 120).map((e) => {
-          const st = statsByEntity.get(e.id);
-          const seg = segmentOf(e.headcount, segConfig);
-          const nn = newsByEntity.get(e.id);
-          const owner = e.profiles?.full_name;
-
-          return (
-            <div
-              key={e.id}
-              onClick={() => setOpenEntityId(e.id)}
-              className="cursor-pointer rounded-xl border bg-white p-4 shadow-sm"
-              style={{ borderColor: "var(--line)" }}
-            >
-              <div className="mb-2 flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-semibold">{e.name}</div>
-                  {e.groups && <div className="text-[10.5px] text-[var(--muted)]">🏛 {e.groups.name}</div>}
-                </div>
-                {seg && (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[9.5px] font-bold text-white"
-                    style={{ background: SEG_COLOR[seg] }}
-                  >
-                    {SEG_LABEL[seg]}
-                  </span>
-                )}
-              </div>
-
-              <div className="mb-2 grid grid-cols-4 gap-1 text-center">
-                <Stat v={e.parc || 0} l="Parc" />
-                <Stat v={st?.n ?? 0} l="Oppos" />
-                <Stat v={st?.n ? keur(st.amount) : "—"} l="Pipe" />
-                <Stat v={contactsByEntity.get(e.id)?.length ?? 0} l="Contacts" />
-              </div>
-
-              {nn && nn.length > 0 && (
-                <div
-                  className="mb-2 rounded-lg p-2 text-[10.5px] leading-snug"
-                  style={{ background: "var(--teal-soft)" }}
+      {filtered.length ? (
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm" style={{ borderColor: "var(--line)" }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr
+                className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]"
+                style={{ background: "var(--bg)" }}
+              >
+                <th className="px-4 py-2.5 font-semibold">
+                  <button onClick={() => toggleSort("name")} className="uppercase tracking-wide">
+                    Client{arrow("name")}
+                  </button>
+                </th>
+                <th className="w-[180px] px-4 py-2.5 text-right font-semibold">
+                  <button onClick={() => toggleSort("parc")} className="uppercase tracking-wide">
+                    Machines{arrow("parc")}
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr
+                  key={e.id}
+                  onClick={() => setOpenEntityId(e.id)}
+                  className="cursor-pointer border-t hover:bg-[var(--teal-soft)]"
+                  style={{ borderColor: "var(--line)" }}
                 >
-                  <b>📰 {nn[0].signal}</b> · {nn[0].title.length > 80 ? nn[0].title.slice(0, 78) + "…" : nn[0].title}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                {owner ? (
-                  <>
-                    <span
-                      className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                      style={{ background: aeColor(owner, aes.map((a) => a.full_name)) }}
-                    >
-                      {initials(owner)}
-                    </span>
-                    <span className="text-[10.5px] text-[var(--muted)]">{owner.split(" ")[0]}</span>
-                  </>
-                ) : (
-                  <span className="text-[10.5px] text-[var(--muted)]">non attribué</span>
-                )}
-                <span className="ml-auto text-[10.5px] font-bold" style={{ color: "var(--teal)" }}>
-                  Ouvrir →
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {!filtered.length && (
+                  <td className="px-4 py-2.5">
+                    <span className="font-semibold">{e.name}</span>
+                    {e.groups && <span className="ml-2 text-[11px] text-[var(--muted)]">🏛 {e.groups.name}</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
+                    {(e.parc || 0).toLocaleString("fr-FR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
         <div className="rounded-xl border p-6 text-center text-sm text-[var(--muted)]" style={{ borderColor: "var(--line)" }}>
           Aucun client ne correspond à ces filtres.
-        </div>
-      )}
-      {filtered.length > 120 && (
-        <div className="mt-3 text-center text-xs text-[var(--muted)]">
-          Affichage limité à 120 cartes — affinez la recherche.
         </div>
       )}
 
       {openEntity && (
         <ClientDrawer
           entity={openEntity}
-          opps={statsByEntity.get(openEntity.id)?.oo ?? []}
+          opps={oppsByEntity.get(openEntity.id) ?? []}
           contacts={contactsByEntity.get(openEntity.id) ?? []}
           groups={groups}
           aes={aes}
@@ -228,15 +193,6 @@ export function ClientsGrid({
           onClose={() => setOpenEntityId(null)}
         />
       )}
-    </div>
-  );
-}
-
-function Stat({ v, l }: { v: string | number; l: string }) {
-  return (
-    <div>
-      <div className="font-display text-[15px] font-bold">{v}</div>
-      <div className="text-[9px] text-[var(--muted)]">{l}</div>
     </div>
   );
 }

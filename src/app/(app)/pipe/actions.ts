@@ -6,6 +6,7 @@ import { keur, fdate } from "@/lib/format";
 import { stageOf, STAGES } from "@/lib/stages";
 import { todayISO } from "@/lib/dates";
 import { MEDDIC_FIELDS, isMeddicComplete, meddicRequired, type MeddicKey } from "@/lib/meddic";
+import { isPersona } from "@/lib/personas";
 
 const MEDDIC_COLUMNS = MEDDIC_FIELDS.map((f) => `meddic_${f.key}`);
 
@@ -264,6 +265,109 @@ export async function markLost(oppId: string, comment: string): Promise<{ ok: bo
   return { ok: true };
 }
 
+export type NewContactInput = {
+  full_name: string;
+  role: string; // intitulé de poste
+  persona: string; // Achat, RSE, QHSE, Direction de Site, Environnement de Travail
+  email: string;
+  phone: string; // téléphone professionnel
+  company: string; // société du contact
+};
+
+type Supa = Awaited<ReturnType<typeof createClient>>;
+
+// Crée le contact sur le compte client (ou réutilise un contact existant du
+// même compte, repéré par e-mail puis par nom) et le lie à l'opportunité.
+async function linkContact(
+  supabase: Supa,
+  entityId: string,
+  oppId: string,
+  clientName: string,
+  c: NewContactInput,
+): Promise<string | null> {
+  const fullName = c.full_name.trim();
+  if (!fullName) return null;
+  const email = c.email.trim();
+
+  let contactId: string | null = null;
+  if (email) {
+    const { data } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("entity_id", entityId)
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    contactId = data?.id ?? null;
+  }
+  if (!contactId) {
+    const { data } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("entity_id", entityId)
+      .ilike("full_name", fullName)
+      .limit(1)
+      .maybeSingle();
+    contactId = data?.id ?? null;
+  }
+  if (!contactId) {
+    const { data, error } = await supabase
+      .from("contacts")
+      .insert({
+        entity_id: entityId,
+        full_name: fullName,
+        role: c.role.trim() || null,
+        persona: isPersona(c.persona) ? c.persona : null,
+        email: email || null,
+        phone: c.phone.trim() || null,
+        company: c.company.trim() || clientName,
+      })
+      .select("id")
+      .single();
+    if (error || !data) return error?.message ?? "Contact non créé";
+    contactId = data.id;
+  }
+
+  const { error: linkErr } = await supabase
+    .from("opportunity_contacts")
+    .upsert({ opp_id: oppId, contact_id: contactId }, { onConflict: "opp_id,contact_id" });
+  return linkErr ? linkErr.message : null;
+}
+
+export async function addOppContact(
+  oppId: string,
+  contact: NewContactInput,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!contact.full_name.trim()) return { ok: false, error: "Indiquez le nom complet du contact" };
+  const supabase = await createClient();
+  const { data: opp, error } = await supabase
+    .from("opportunities")
+    .select("entity_id, entities(name)")
+    .eq("id", oppId)
+    .single<{ entity_id: string; entities: { name: string } | null }>();
+  if (error || !opp) return { ok: false, error: error?.message ?? "Opportunité introuvable" };
+  const err = await linkContact(supabase, opp.entity_id, oppId, opp.entities?.name ?? "", contact);
+  if (err) return { ok: false, error: err };
+  revalidatePath("/pipe");
+  revalidatePath("/clients");
+  return { ok: true };
+}
+
+export async function removeOppContact(
+  oppId: string,
+  contactId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("opportunity_contacts")
+    .delete()
+    .eq("opp_id", oppId)
+    .eq("contact_id", contactId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/pipe");
+  return { ok: true };
+}
+
 export type NewOpportunityInput = {
   clientName: string;
   name: string;
@@ -275,11 +379,12 @@ export type NewOpportunityInput = {
   closeDate: string | null;
   source: string;
   meddic?: Record<MeddicKey, string>;
+  contacts?: NewContactInput[];
 };
 
 export async function createOpportunity(
   input: NewOpportunityInput,
-): Promise<{ ok: boolean; error?: string; id?: string }> {
+): Promise<{ ok: boolean; error?: string; warning?: string; id?: string }> {
   const supabase = await createClient();
   const userId = await currentUserId();
 
@@ -340,6 +445,20 @@ export async function createOpportunity(
     delta_amount: input.amount,
   });
 
+  // Contacts (un ou plusieurs) : créés sur le compte client et liés à l'opportunité.
+  const contactErrors: string[] = [];
+  for (const c of input.contacts ?? []) {
+    const err = await linkContact(supabase, entityId, opp.id, input.clientName, c);
+    if (err) contactErrors.push(`${c.full_name || "contact"} : ${err}`);
+  }
+
   revalidatePath("/pipe");
-  return { ok: true, id: opp.id };
+  revalidatePath("/clients");
+  return {
+    ok: true,
+    id: opp.id,
+    warning: contactErrors.length
+      ? `L'opportunité est créée, mais certains contacts n'ont pas pu être ajoutés (${contactErrors.join(" ; ")}).`
+      : undefined,
+  };
 }

@@ -45,3 +45,9 @@ next-env.d.ts
 # editors
 .vscode/
 .idea/
+
+# données clients : sauvegardes et exports Dynamics, jamais commités
+backups/
+*.xlsx
+*.xls
+*.csv

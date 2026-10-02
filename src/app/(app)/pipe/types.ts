@@ -1,3 +1,13 @@
+export type OppContact = {
+  id: string;
+  full_name: string;
+  role: string | null;
+  persona: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+};
+
 export type OppRow = {
   id: string;
   name: string;
@@ -21,6 +31,7 @@ export type OppRow = {
   ae_id: string;
   entities: { name: string } | null;
   profiles: { full_name: string } | null;
+  opportunity_contacts: { contacts: OppContact | null }[];
 };
 
 export type AeOption = { id: string; full_name: string };

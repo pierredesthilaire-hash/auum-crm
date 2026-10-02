@@ -247,7 +247,7 @@ export function PipeBoard({
 
       {drawer && (
         <OppDrawer
-          opp={drawer.mode === "view" ? drawer.opp : null}
+          opp={drawer.mode === "view" ? opps.find((o) => o.id === drawer.opp.id) ?? drawer.opp : null}
           aes={aes}
           entityNames={entityNames}
           currentUser={currentUser}

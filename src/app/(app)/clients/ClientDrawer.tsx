@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { keur, fdate, initials, aeColor } from "@/lib/format";
 import { SEG_LABEL, SEG_COLOR, segDesc, segmentOf, type SegConfig } from "@/lib/segments";
 import { stageOf } from "@/lib/stages";
+import { PERSONAS } from "@/lib/personas";
 import { updateEntity, createGroup, addContact, removeContact } from "./actions";
 import type { AeOption, ContactRow, CurrentUser, EntityOpp, EntityRow, GroupOption } from "./types";
 
@@ -32,7 +33,7 @@ export function ClientDrawer({
   const [ownerId, setOwnerId] = useState(entity.owner_id ?? "");
   const [parc, setParc] = useState(entity.parc ?? 0);
   const [parcNote, setParcNote] = useState(entity.parc_note ?? "");
-  const [contactForm, setContactForm] = useState({ full_name: "", role: "", email: "", phone: "" });
+  const [contactForm, setContactForm] = useState({ full_name: "", role: "", persona: "", email: "", phone: "" });
 
   const seg = segmentOf(headcount === "" ? null : +headcount, segConfig);
   const activeAes = useMemo(() => {
@@ -57,7 +58,7 @@ export function ClientDrawer({
   const handleAddContact = async () => {
     if (!contactForm.full_name.trim()) return;
     await addContact(entity.id, contactForm);
-    setContactForm({ full_name: "", role: "", email: "", phone: "" });
+    setContactForm({ full_name: "", role: "", persona: "", email: "", phone: "" });
   };
 
   return (
@@ -243,7 +244,7 @@ export function ClientDrawer({
                   <div className="min-w-0 flex-1">
                     <div className="text-[12px] font-semibold">{c.full_name}</div>
                     <div className="truncate text-[10.5px] text-[var(--muted)]">
-                      {[c.role, c.email, c.phone].filter(Boolean).join(" · ")}
+                      {[c.role, c.persona, c.email, c.phone].filter(Boolean).join(" · ")}
                     </div>
                   </div>
                   <button onClick={() => removeContact(c.id)} className="btn shrink-0" style={{ color: "var(--red)" }}>
@@ -262,9 +263,21 @@ export function ClientDrawer({
               <input
                 value={contactForm.role}
                 onChange={(e) => setContactForm((f) => ({ ...f, role: e.target.value }))}
-                placeholder="Rôle (RSE, QHSE…)"
+                placeholder="Intitulé de poste"
                 className="input"
               />
+              <select
+                value={contactForm.persona}
+                onChange={(e) => setContactForm((f) => ({ ...f, persona: e.target.value }))}
+                className="input"
+              >
+                <option value="">Persona…</option>
+                {PERSONAS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
               <input
                 value={contactForm.email}
                 onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}

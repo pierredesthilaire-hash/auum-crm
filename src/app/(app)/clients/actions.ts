@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isPersona } from "@/lib/personas";
 
 export async function updateEntity(
   entityId: string,
@@ -30,13 +31,14 @@ export async function createGroup(name: string): Promise<{ ok: boolean; id?: str
 
 export async function addContact(
   entityId: string,
-  contact: { full_name: string; role: string; email: string; phone: string },
+  contact: { full_name: string; role: string; persona: string; email: string; phone: string },
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from("contacts").insert({
     entity_id: entityId,
     full_name: contact.full_name,
     role: contact.role || null,
+    persona: isPersona(contact.persona) ? contact.persona : null,
     email: contact.email || null,
     phone: contact.phone || null,
   });

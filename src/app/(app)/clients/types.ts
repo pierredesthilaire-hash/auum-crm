@@ -17,8 +17,10 @@ export type ContactRow = {
   entity_id: string;
   full_name: string;
   role: string | null;
+  persona: string | null;
   email: string | null;
   phone: string | null;
+  company: string | null;
 };
 
 export type EntityOpp = {
